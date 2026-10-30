@@ -1,0 +1,8 @@
+.agent
+.env
+.env.*
+graphify-out
+tmp
+scripts
+supabase
+*.md
