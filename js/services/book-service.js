@@ -122,7 +122,7 @@ export async function listBooks({ search = "", category = "", limit = 60 } = {})
     if ((page || []).length < pageSize) break;
   }
   const needle = search.trim().toLocaleLowerCase("id-ID");
-  return sortBooksByCompleteness(data.filter((book) => {
+  return sortCatalogBooks(data.filter((book) => {
     const matchesCategory = !category || book.category?.slug === category;
     const haystack = `${book.title} ${book.authors} ${book.isbn || ""} ${book.category?.name || ""}`.toLocaleLowerCase("id-ID");
     return matchesCategory && (!needle || haystack.includes(needle));
