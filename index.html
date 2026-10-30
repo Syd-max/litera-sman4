@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="LITERA Smart Library SMAN 4 Tangerang Selatan">
+  <title>Login Siswa</title><link rel="icon" type="image/png" href="./assets/sman4-logo.png">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/auth.css">
+</head>
+<body class="auth-page" data-page="student-login">
+  <main class="auth-shell">
+    <section class="auth-brand" aria-label="LITERA Smart Library">
+      <img src="./assets/sman4-logo.png" alt="Logo SMAN 4 Tangerang Selatan">
+      <h1>SMART LIBRARY</h1>
+      <p>SMAN 4 TANGERANG SELATAN</p>
+    </section>
+    <section class="auth-card">
+      <h2>Login Siswa</h2>
+      <p>Masuk menggunakan akun siswa yang sudah disetujui pustakawan.</p>
+      <form class="auth-form">
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="nama@sman4.sch.id" required></div>
+        <div class="field"><label for="password">Password</label><div class="field__control"><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Masukkan password" required><button class="password-toggle" type="button" data-password-toggle="password" aria-label="Tampilkan password"></button></div></div>
+        <div class="auth-form__meta"><a class="auth-link" href="./forgot-password.html">Lupa Password?</a></div>
+        <button class="button button--lime button--block" type="submit">Masuk</button>
+      </form>
+      <p class="auth-footer">Belum punya akun? <a class="auth-link" href="./register.html">Daftar Sekarang</a></p>
+    </section>
+  </main>
+  <script src="./js/config/supabase-config.js"></script>
+  <script type="module" src="./js/pages/auth-pages.js"></script>
+</body>
+</html>
+
+

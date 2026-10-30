@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Daftar Akun</title><link rel="icon" type="image/png" href="./assets/sman4-logo.png">
+  <link rel="stylesheet" href="./css/base.css"><link rel="stylesheet" href="./css/components.css"><link rel="stylesheet" href="./css/auth.css">
+</head>
+<body class="auth-page" data-page="register">
+  <main class="auth-shell">
+    <section class="auth-card">
+      <div class="register-heading"><a class="auth-back" href="./index.html" aria-label="Kembali ke login">←</a><div><h1>Daftar Akun</h1><p>Lengkapi data untuk mendaftar sebagai anggota perpustakaan.</p></div></div>
+      <form class="auth-form">
+        <div class="field field--with-icon"><label for="full-name">Nama Lengkap</label><div class="field__control"><span class="field-icon" data-field-icon="user"></span><input id="full-name" name="fullName" autocomplete="name" placeholder="Contoh: Budi Setiawan" required></div></div>
+        <div class="register-grid"><div class="field field--with-icon"><label for="class-name">Kelas</label><div class="field__control"><span class="field-icon" data-field-icon="book"></span><input id="class-name" name="className" placeholder="Contoh: XII IPA 2" required></div></div><div class="field field--with-icon"><label for="major">Jurusan</label><div class="field__control"><span class="field-icon" data-field-icon="book"></span><input id="major" name="major" placeholder="Contoh: IPA" required></div></div></div>
+        <div class="field field--with-icon"><label for="enrollment-year">Tahun Masuk</label><div class="field__control"><span class="field-icon" data-field-icon="clock"></span><input id="enrollment-year" name="enrollmentYear" type="number" min="2020" max="2100" placeholder="Contoh: 2026" required></div></div>
+        <div class="field field--with-icon"><label for="email">Email</label><div class="field__control"><span class="field-icon" data-field-icon="mail"></span><input id="email" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required></div></div>
+        <div class="field field--with-icon"><label for="password">Password</label><div class="field__control"><span class="field-icon" data-field-icon="lock"></span><input id="password" name="password" type="password" autocomplete="new-password" data-password placeholder="Minimal 8 karakter" required><button class="password-toggle" type="button" data-password-toggle="password" aria-label="Tampilkan password"></button></div><p class="field__hint">Gunakan huruf besar, huruf kecil, dan angka.</p></div>
+        <div class="notice notice--registration"><span data-field-icon="info"></span><span>Pendaftaran membutuhkan validasi pustakawan. Akun aktif paling lambat 1×24 jam kerja.</span></div>
+        <div class="notice notice--danger" data-register-error role="alert" hidden></div>
+        <button class="button button--lime button--block" type="submit">Daftar Sekarang</button>
+      </form>
+      <p class="auth-footer">Sudah punya akun? <a class="auth-link" href="./index.html">Masuk</a></p>
+    </section>
+  </main>
+  <script src="./js/config/supabase-config.js"></script><script type="module" src="./js/pages/auth-pages.js"></script>
+</body>
+</html>
+
+

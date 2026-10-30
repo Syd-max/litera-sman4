@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 336" role="img" aria-label="Sampul buku belum tersedia">
+  <rect width="240" height="336" rx="22" fill="#eaf2f7"/>
+  <circle cx="120" cy="150" r="58" fill="#d8e8f2"/>
+  <g fill="none" stroke="#52718a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="82" y="90" width="76" height="112" rx="10"/>
+    <path d="M82 174h76M98 202h44"/>
+  </g>
+</svg>

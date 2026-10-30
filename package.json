@@ -1,0 +1,11 @@
+{
+  "name": "litera-smart-library",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Sistem perpustakaan fisik SMAN 4 Tangerang Selatan.",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "check": "node scripts/check-project.mjs && node scripts/check-open-library.mjs && node scripts/check-book-archive.mjs && node scripts/check-book-cover.mjs && node scripts/check-dashboard.mjs && node scripts/check-book-export.mjs"
+  }
+}
