@@ -3,7 +3,7 @@ import { icon } from "../components/icons.js";
 import { renderLibrarianNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { downloadBooksCsv, downloadBooksSpreadsheet } from "../book-export.js";
-import { archiveBook, bookCoverStoragePath, getBook, listArchivedBooks, listBooks, listBooksForExport, listCategories, removeBookCover, restoreBook, saveBook, uploadBookCover } from "../services/book-service.js";
+import { archiveBook, bookCoverStoragePath, getBook, isBookOutOfStock, listArchivedBooks, listBooks, listBooksForExport, listCategories, removeBookCover, restoreBook, saveBook, uploadBookCover } from "../services/book-service.js";
 import { requireRole, signOut } from "../services/auth-service.js";
 import { approveLoan, confirmReturn, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
@@ -26,6 +26,7 @@ const pageTitles = {
   dashboard: ["Overview", "Ringkasan layanan perpustakaan"],
   students: ["Validasi Siswa", "Periksa dan kelola status pendaftaran"],
   books: ["Data Buku", "Kelola metadata dan stok koleksi fisik"],
+  "empty-stock": ["Stok Kosong", "Pantau buku tanpa eksemplar tersedia"],
   archive: ["Arsip Buku", "Koleksi yang tidak lagi tampil di katalog"],
   loans: ["Data Peminjaman", "Proses pengajuan, perpanjangan, dan pengembalian"],
   transactions: ["Data Transaksi", "Riwayat seluruh aktivitas peminjaman"]
@@ -37,7 +38,7 @@ function renderShell(identity) {
     <button class="admin-menu-toggle" type="button" data-sidebar-toggle aria-controls="admin-sidebar" aria-expanded="false" aria-label="Buka atau tutup menu">${icon("book")}</button>
     <div class="admin-header__title"><div class="admin-breadcrumb"><span>${title}</span></div><p>${subtitle}</p></div>
     <div class="admin-brand"><div><strong>${escapeHtml(identity?.profile?.full_name || "Pengelola")}</strong><span>Pustakawan</span></div></div>`;
-  const activeNavigation = { dashboard: "dashboard", students: "siswa", books: "buku", archive: "arsip", loans: "pinjaman", transactions: "pinjaman" }[page];
+  const activeNavigation = { dashboard: "dashboard", students: "siswa", books: "buku", "empty-stock": "stok-kosong", archive: "arsip", loans: "pinjaman", transactions: "pinjaman" }[page];
   document.getElementById("admin-nav").innerHTML = renderLibrarianNavigation(activeNavigation);
   if (!document.body.dataset.sidebarReady) {
     document.body.classList.toggle("admin-sidebar-open", matchMedia("(min-width: 760px)").matches);
@@ -297,7 +298,7 @@ async function openMetadataModal(categories, reload) {
   modal.querySelector("input").focus();
 }
 
-async function renderBooks() {
+async function renderBooks(onlyEmptyStock = false) {
   main.innerHTML = `<div class="book-management-sticky"><section class="book-overview" aria-label="Ringkasan koleksi"><article>${icon("book")}<div><strong id="book-stat-titles">0</strong><span>Judul buku</span></div></article><article>${icon("shelves")}<div><strong id="book-stat-copies">0</strong><span>Total eksemplar</span></div></article><article>${icon("checkCircle")}<div><strong id="book-stat-available">0</strong><span>Eksemplar tersedia</span></div></article><article>${icon("clipboard")}<div><strong id="book-stat-categories">0</strong><span>Genre aktif</span></div></article></section><div class="toolbar toolbar--books"><div class="book-export-actions" aria-label="Ekspor data buku"><button class="button button--secondary" type="button" data-book-export="csv">${icon("download")} Ekspor CSV</button><button class="button button--secondary" type="button" data-book-export="spreadsheet">${icon("shelves")} Ekspor Spreadsheet</button></div><div class="search-field">${icon("search")}<label class="sr-only" for="book-search">Cari buku</label><input id="book-search" type="search" placeholder="Cari judul, penulis, ISBN..."></div><div class="book-genre-filter"><label class="sr-only" for="book-category">Filter genre buku</label><select id="book-category" disabled><option value="">Memuat genre...</option></select></div></div></div><div id="book-results"></div><div class="book-results-more" id="book-results-more" hidden><button class="button button--secondary" type="button">Muat 100 buku lagi</button></div><div class="book-create-actions" id="book-create-actions"><div class="book-create-actions__menu" id="book-create-menu" role="menu" hidden><button class="button" type="button" role="menuitem" data-book-create="manual">${icon("edit")} Tambah Manual</button><button class="button" type="button" role="menuitem" data-book-create="library">${icon("external")} Open Library</button></div><button class="book-create-actions__toggle" id="book-create-toggle" type="button" aria-label="Buka menu tambah buku" aria-controls="book-create-menu" aria-expanded="false">${icon("plus")}</button></div>`;
   const host = document.getElementById("book-results");
   const categorySelect = document.getElementById("book-category");
@@ -305,6 +306,7 @@ async function renderBooks() {
   const createActions = document.getElementById("book-create-actions");
   const createMenu = document.getElementById("book-create-menu");
   const createToggle = document.getElementById("book-create-toggle");
+  createActions.hidden = onlyEmptyStock;
   let books = [];
   let categories = [];
   let visibleCount = 100;
@@ -320,7 +322,7 @@ async function renderBooks() {
     const needle = document.getElementById("book-search").value.toLocaleLowerCase("id-ID");
     const category = categorySelect.value;
     const filtered = books.filter((book) => (!category || book.category?.slug === category) && `${book.title} ${book.authors} ${book.isbn || ""} ${book.category?.name || ""}`.toLocaleLowerCase("id-ID").includes(needle));
-    if (!filtered.length) { more.hidden = true; renderEmpty(host, { title: "Belum ada buku", message: "Tambah buku secara manual atau ambil metadata dari Open Library." }); return; }
+    if (!filtered.length) { more.hidden = true; renderEmpty(host, { title: onlyEmptyStock ? "Tidak ada buku stok kosong" : "Belum ada buku", message: onlyEmptyStock ? "Tidak ada buku tanpa stok tersedia yang sesuai dengan filter ini." : "Tambah buku secara manual atau ambil metadata dari Open Library." }); return; }
     const visible = filtered.slice(0, visibleCount);
     host.innerHTML = `<div class="admin-book-list">${visible.map((book) => `<article class="admin-book-row"><img src="${escapeHtml(book.cover_url || fallbackCoverUrl)}" alt="" data-book-cover loading="lazy" decoding="async"><div class="admin-book-row__identity"><h2 title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</h2><p>${escapeHtml(book.authors)} · ${escapeHtml(book.isbn || "Tanpa ISBN")}</p></div><div class="admin-book-row__meta"><span><b>Kategori</b>${escapeHtml(book.category?.name || "Tanpa kategori")}</span><span><b>Stok</b>${book.available_stock}/${book.total_stock}</span><span><b>Rak</b>${escapeHtml(book.shelf_location)}</span></div><div class="action-cell"><button class="button button--small button--secondary" data-edit-book="${book.id}">${icon("edit")} Ubah</button><button class="button button--small button--danger" aria-label="Arsipkan ${escapeHtml(book.title)}" data-archive-book="${book.id}">${icon("archive")} Arsipkan</button></div></article>`).join("")}</div>`;
     more.hidden = visible.length >= filtered.length;
@@ -329,6 +331,7 @@ async function renderBooks() {
     host.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
       [books, categories] = await Promise.all([listBooks({ limit: 5000 }), listCategories()]);
+      if (onlyEmptyStock) books = books.filter(isBookOutOfStock);
       const populated = new Set(books.map((book) => book.category?.id).filter(Boolean));
       categories = categories.filter((category) => populated.has(category.id));
       categorySelect.innerHTML = [["", "Semua genre"], ...categories.map((category) => [category.slug, category.name])].map(([slug, name]) => `<option value="${escapeHtml(slug)}">${escapeHtml(name)}</option>`).join("");
@@ -351,7 +354,7 @@ async function renderBooks() {
     try {
       const needle = document.getElementById("book-search").value.toLocaleLowerCase("id-ID");
       const category = categorySelect.value;
-      const exportBooks = (await listBooksForExport()).filter((book) => (!category || book.category?.slug === category) && `${book.title} ${book.authors} ${book.isbn || ""} ${book.category?.name || ""}`.toLocaleLowerCase("id-ID").includes(needle));
+      const exportBooks = (await listBooksForExport()).filter((book) => (!onlyEmptyStock || isBookOutOfStock(book)) && (!category || book.category?.slug === category) && `${book.title} ${book.authors} ${book.isbn || ""} ${book.category?.name || ""}`.toLocaleLowerCase("id-ID").includes(needle));
       if (!exportBooks.length) { showToast("Tidak ada data buku pada filter ini.", "info"); return; }
       const date = new Date().toISOString().slice(0, 10);
       if (button.dataset.bookExport === "csv") downloadBooksCsv(exportBooks, `data-buku-${date}.csv`);
@@ -518,6 +521,7 @@ async function initialize() {
     if (page === "dashboard") await renderDashboard(identity);
     if (page === "students") await renderStudents();
     if (page === "books") await renderBooks();
+    if (page === "empty-stock") await renderBooks(true);
     if (page === "archive") await renderArchive();
     if (page === "loans") await renderLoans(false);
     if (page === "transactions") await renderLoans(true);

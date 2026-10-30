@@ -11,6 +11,7 @@ const librarianItems = [
   ["home", "Overview", "./index.html", "dashboard"],
   ["users", "Validasi Siswa", "./students.html", "siswa"],
   ["book", "Data Buku", "./books.html", "buku"],
+  ["shelves", "Stok Kosong", "./empty-stock.html", "stok-kosong"],
   ["archive", "Arsip Buku", "./archive.html", "arsip"],
   ["clock", "Peminjaman", "./loans.html", "pinjaman"]
 ];

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { bookCoverStoragePath, collapseCatalogDuplicates, MAX_BOOK_COVER_BYTES, MAX_BOOK_COVER_DIMENSION, MAX_COMPRESSED_BOOK_COVER_BYTES, sanitizeAuthors, sortBooksByCompleteness, validateBookCover } from "../js/services/book-service.js";
+import { bookCoverStoragePath, collapseCatalogDuplicates, isBookOutOfStock, MAX_BOOK_COVER_BYTES, MAX_BOOK_COVER_DIMENSION, MAX_COMPRESSED_BOOK_COVER_BYTES, sanitizeAuthors, sortBooksByCompleteness, sortCatalogBooks, validateBookCover } from "../js/services/book-service.js";
 import { friendlyError } from "../js/utils.js";
 
 const schema = await readFile(new URL("../supabase/schema.sql", import.meta.url), "utf8");
@@ -51,5 +51,15 @@ const sorted = sortBooksByCompleteness([
   { title: "Satu field", cover_url: null, synopsis: "Ada", isbn: null }
 ]);
 assert.deepEqual(sorted.map((book) => book.title), ["Lengkap", "Dua field", "Satu field", "Kosong"]);
+
+const stockBooks = [
+  { title: "Lengkap kosong", available_stock: 0, total_stock: 0, cover_url: "cover", synopsis: "Sinopsis", isbn: "123" },
+  { title: "Tersedia minimal", available_stock: 1, total_stock: 1 },
+  { title: "Tersedia lengkap", available_stock: 2, total_stock: 2, cover_url: "cover", synopsis: "Sinopsis", isbn: "456" },
+  { title: "Sedang dipinjam", available_stock: 0, total_stock: 2 }
+];
+assert.deepEqual(sortCatalogBooks(stockBooks).map(book => book.title), ["Tersedia lengkap", "Tersedia minimal", "Lengkap kosong", "Sedang dipinjam"]);
+assert.deepEqual(stockBooks.filter(isBookOutOfStock).map(book => book.title), ["Lengkap kosong", "Sedang dipinjam"]);
+assert.equal(stockBooks[0].title, "Lengkap kosong");
 
 console.log("Manual book cover upload checks passed.");

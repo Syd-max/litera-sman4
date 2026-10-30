@@ -22,6 +22,12 @@ export function sortBooksByCompleteness(books) {
     || String(left.authors || "").localeCompare(String(right.authors || ""), "id-ID", { sensitivity: "base" }));
 }
 
+export const isBookOutOfStock = (book) => Number(book.available_stock || 0) <= 0;
+
+export function sortCatalogBooks(books) {
+  return sortBooksByCompleteness(books).sort((left, right) => Number(isBookOutOfStock(left)) - Number(isBookOutOfStock(right)));
+}
+
 export function collapseCatalogDuplicates(books) {
   const grouped = new Map();
   for (const book of books) {
@@ -153,7 +159,7 @@ export async function listCatalogBooks() {
     }
     if (error) throw error;
     books.push(...(data || []));
-    if ((data || []).length < pageSize) return sortBooksByCompleteness(collapseCatalogDuplicates(books));
+    if ((data || []).length < pageSize) return sortCatalogBooks(collapseCatalogDuplicates(books));
   }
 }
 
