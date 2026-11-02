@@ -1,7 +1,7 @@
 import { icon } from "../components/icons.js";
 import { setBusy, showToast } from "../components/feedback.js";
 import { friendlyError } from "../utils.js";
-import { registerStudent, sendPasswordReset, signIn, updatePassword } from "../services/auth-service.js";
+import { registerStudent, signIn, updatePassword } from "../services/auth-service.js";
 
 const page = document.body.dataset.page;
 
@@ -84,27 +84,6 @@ function initializeRegister() {
   });
 }
 
-function initializeForgotPassword() {
-  document.querySelector("form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const button = event.submitter;
-    setBusy(button, true, "Mengirim...");
-    try {
-      const email = new FormData(event.currentTarget).get("email").trim();
-      const { error } = await sendPasswordReset(email);
-      if (error) throw error;
-      const confirmation = document.querySelector("[data-reset-confirmation]");
-      confirmation.hidden = false;
-      confirmation.querySelector("strong").textContent = email;
-      event.currentTarget.hidden = true;
-    } catch (error) {
-      showToast(friendlyError(error), "danger");
-    } finally {
-      setBusy(button, false);
-    }
-  });
-}
-
 function initializeUpdatePassword() {
   document.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -139,6 +118,5 @@ setupPasswordToggles();
 if (page === "student-login") initializeLogin("STUDENT");
 if (page === "admin-login") initializeLogin("LIBRARIAN");
 if (page === "register") initializeRegister();
-if (page === "forgot-password") initializeForgotPassword();
 if (page === "update-password") initializeUpdatePassword();
 

@@ -13,6 +13,16 @@ async function resolveRole(client, userId) {
 }
 
 export async function registerStudent({ fullName, className, enrollmentYear, major, email, password }) {
+  // Refuse signup before it can send mail if the hosted Auth settings drift.
+  const config = window.LITERA_CONFIG || {};
+  const settingsResponse = await fetch(`${config.supabaseUrl}/auth/v1/settings`, {
+    headers: { apikey: config.supabasePublishableKey }
+  });
+  if (!settingsResponse.ok) throw new Error("Pengaturan pendaftaran belum dapat diperiksa. Coba lagi nanti.");
+  const settings = await settingsResponse.json();
+  if (settings.mailer_autoconfirm !== true) {
+    throw Object.assign(new Error("Pendaftaran sementara belum tersedia. Hubungi pustakawan untuk mengaktifkan pendaftaran tanpa konfirmasi email."), { code: "EMAIL_CONFIRMATION_ENABLED" });
+  }
   const client = await getSupabase();
   const result = await client.auth.signUp({
     email,
@@ -67,13 +77,6 @@ export async function signOut() {
   const client = await getSupabase();
   const { error } = await client.auth.signOut({ scope: "local" });
   if (error) throw error;
-}
-
-export async function sendPasswordReset(email) {
-  const client = await getSupabase();
-  return client.auth.resetPasswordForEmail(email, {
-    redirectTo: new URL("./update-password.html", window.location.href).href
-  });
 }
 
 export async function updatePassword(password) {

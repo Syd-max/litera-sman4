@@ -341,6 +341,12 @@ begin
   where id = p_student_id and status = 'PENDING'
   returning * into result;
   if result.id is null then raise exception 'registration is not pending'; end if;
+  if p_decision = 'ACTIVE' then
+    update auth.users
+    set email_confirmed_at = coalesce(email_confirmed_at, now()),
+        confirmation_token = '', confirmation_sent_at = null, updated_at = now()
+    where id = result.id;
+  end if;
   return result;
 end;
 $$;
