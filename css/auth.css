@@ -175,6 +175,7 @@
 .forgot-divider::before, .forgot-divider::after { height: 1px; flex: 1; background: rgba(255,255,255,.24); content: ""; }
 .forgot-login { display: flex; width: 100%; min-height: 46px; align-items: center; justify-content: center; border: 2px solid var(--lime-400); border-radius: 10px; color: var(--lime-400); background: transparent; }
 .forgot-page .notice { margin-top: 16px; }
+.forgot-content > .notice + .forgot-login { margin-top: 20px; }
 .forgot-help { margin: auto 0 0; padding-top: 28px; color: var(--lime-400); text-align: center; font-size: .7rem; font-weight: 700; }
 .forgot-help a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
