@@ -37,6 +37,10 @@ function activeNav() {
   return "beranda";
 }
 
+function headerActions(active) {
+  return `<div class="student-header-actions">${renderStudentDesktopNavigation(active)}<a class="icon-button" href="./favorites.html" aria-label="Buka favorit"${page === "favorites" ? ' aria-current="page"' : ""}>${icon("heart")}</a></div>`;
+}
+
 function renderShell(identity) {
   const active = activeNav();
   nav.innerHTML = renderStudentNavigation(active);
@@ -54,8 +58,7 @@ function renderShell(identity) {
           <img src="../assets/sman4-logo.png" alt="Logo SMAN 4 Tangerang Selatan">
           <div><span>Selamat datang</span><strong>${name}</strong></div>
         </div>
-        ${renderStudentDesktopNavigation(active)}
-        <a class="icon-button" href="./favorites.html" aria-label="Buka favorit">${icon("heart")}</a>
+        ${headerActions(active)}
       </div>
       <a class="search-field home-search home-search-link" href="./search.html" aria-label="Buka pencarian buku">
         ${icon("search")}<span>Cari judul atau penulis...</span>
@@ -71,15 +74,14 @@ function renderShell(identity) {
   }
   if (page === "favorites") {
     header.className = "topbar favorites-topbar";
-    header.innerHTML = `<div class="topbar__inner"><div class="favorites-topbar__row"><a class="icon-button" href="./catalog.html" aria-label="Kembali ke katalog">${icon("arrowLeft")}</a><div><h1>${title}</h1><p>${subtitle}</p></div></div></div>`;
+    header.innerHTML = `<div class="topbar__inner"><div class="topbar__row"><div class="favorites-topbar__row"><a class="icon-button" href="./catalog.html" aria-label="Kembali ke katalog">${icon("arrowLeft")}</a><div><h1>${title}</h1><p>${subtitle}</p></div></div>${headerActions(active)}</div></div>`;
     return;
   }
   if (["history", "info"].includes(page)) {
     header.innerHTML = `<div class="topbar__inner"><div class="detail-topbar"><a class="icon-button" href="./profile.html" aria-label="Kembali ke profil">${icon("arrowLeft")}</a><h1>${title}</h1></div></div>`;
     return;
   }
-  const favoriteAction = page === "catalog" ? `<a class="icon-button" href="./favorites.html" aria-label="Buka favorit">${icon("heart")}</a>` : `<span class="student-header-spacer" aria-hidden="true"></span>`;
-  header.innerHTML = `<div class="topbar__inner"><div class="topbar__row"><div><h1>${title}</h1><p>${subtitle}</p></div><div class="student-header-actions">${renderStudentDesktopNavigation(active)}${favoriteAction}</div></div></div>`;
+  header.innerHTML = `<div class="topbar__inner"><div class="topbar__row"><div><h1>${title}</h1><p>${subtitle}</p></div>${headerActions(active)}</div></div>`;
 }
 
 function configurationBlock() {
@@ -458,7 +460,7 @@ async function renderProfile(identity) {
   header.remove();
   main.className = "";
   main.innerHTML = `
-    <section class="topbar topbar--compact profile-hero"><div class="topbar__inner profile-hero__inner"><div class="profile-identity"><img src="../assets/sman4-logo.png" alt="Logo SMAN 4 Tangerang Selatan"><div><h1>${escapeHtml(identity.profile.full_name)}</h1><p>${escapeHtml(identity.profile.class_name)}, ${escapeHtml(identity.profile.major)}</p></div></div><div class="profile-hero__nav"><div class="student-header-actions">${renderStudentDesktopNavigation("profil")}<span class="student-header-spacer" aria-hidden="true"></span></div></div></div></section>
+    <section class="topbar topbar--compact profile-hero"><div class="topbar__inner profile-hero__inner"><div class="profile-identity"><img src="../assets/sman4-logo.png" alt="Logo SMAN 4 Tangerang Selatan"><div><h1>${escapeHtml(identity.profile.full_name)}</h1><p>${escapeHtml(identity.profile.class_name)}, ${escapeHtml(identity.profile.major)}</p></div></div><div class="profile-hero__nav">${headerActions("profil")}</div></div></section>
     <div class="page-container page-container--narrow stack">
       <div class="profile-menu card">
         <a href="./history.html">${icon("book")}<span>Riwayat Bacaan</span>${icon("arrowRight")}</a>

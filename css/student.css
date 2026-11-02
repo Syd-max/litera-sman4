@@ -178,6 +178,7 @@
 .loan-card .notice + .loan-card__actions { margin-top: 10px; }
 
 .favorites-topbar .topbar__inner { min-height: 126px; padding-bottom: 18px; }
+.favorites-topbar .student-header-actions { display: none; }
 .favorites-topbar__row { display: flex; align-items: flex-start; gap: 8px; }
 .favorites-topbar__row .icon-button { width: 34px; height: 34px; flex-basis: 34px; color: #fff; background: rgba(255,255,255,.12); }
 .favorites-topbar__row .icon-button svg { width: 20px; height: 20px; }
@@ -276,10 +277,15 @@
 }
 
 @media (min-width: 760px) {
-  .home-topbar .topbar__row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; }
-  .home-topbar .desktop-nav { justify-self: end; }
-  .home-topbar .topbar__row > .icon-button { justify-self: end; }
-  .profile-hero__inner { display: flex; width: min(100%,var(--content-width)); min-height: 82px; align-items: center; justify-content: space-between; gap: 24px; padding: 10px clamp(24px,4vw,34px); }
+  .topbar__row { display: grid; min-height: 64px; grid-template-columns: minmax(0,1fr) auto; }
+  .topbar__inner, .topbar--compact .topbar__inner, .favorites-topbar .topbar__inner { padding-top: 22px; padding-bottom: 22px; }
+  .student-header-actions { gap: 14px; }
+  .student-header-actions > .icon-button { background: transparent; }
+  .favorites-topbar .student-header-actions { display: flex; }
+  .topbar__row > :first-child, .favorites-topbar__row > div { min-width: 0; }
+  .topbar__row p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .favorites-topbar__row p { max-width: none; }
+  .profile-hero .profile-hero__inner { display: grid; width: min(100%,var(--content-width)); min-height: 108px; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 22px clamp(18px,4vw,34px); }
   .profile-identity img { width: 48px; height: 48px; flex-basis: 48px; }
   .profile-hero__nav { display: flex; justify-content: flex-end; margin: 0; padding: 0; border: 0; }
   .profile-hero__nav .desktop-nav { display: flex; gap: 10px; }
