@@ -114,9 +114,12 @@
 .book-card__availability { width: fit-content; margin-bottom: 2px; }
 
 .catalog-page { padding-top: 0; }
-.catalog-sticky { position: sticky; z-index: 35; top: 82px; padding-top: 18px; background: var(--surface-muted); }
+.catalog-sticky { position: sticky; z-index: 35; top: 82px; padding: 18px 0 20px; border-radius: 0 0 20px 20px; background: var(--surface-muted); box-shadow: 0 12px 18px -16px rgba(25,50,91,.2); }
 .catalog-page .category-filter { margin-top: 16px; }
-.catalog-page .section-heading { margin: 18px 0 14px; }
+.catalog-page .section-heading { margin: 20px 0 0; }
+.catalog-page #catalog-results { padding-top: 18px; }
+.catalog-entry { min-width: 0; }
+.catalog-entry .book-card { transform-origin: center bottom; }
 .catalog-page .section-heading h2 { font-size: 1rem; }
 .catalog-page .section-heading > span { color: var(--ink-700); font-size: .78rem; }
 
