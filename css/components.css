@@ -198,11 +198,11 @@
 .select-menu__button:disabled { color: var(--ink-500); background: var(--surface-muted); cursor: not-allowed; }
 .select-menu__options { position: absolute; z-index: 90; top: calc(100% + 6px); right: 0; left: 0; display: grid; width: 100%; max-width: 100%; max-height: min(280px,45vh); padding: 5px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #d3deea; border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(25,50,91,.18); }
 .select-menu__options[hidden] { display: none; }
-.select-menu__option { width: 100%; min-height: 38px; padding: 8px 10px; color: var(--ink-800); border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: .8rem; text-align: left; }
+.select-menu__option { width: 100%; min-height: 38px; padding: 8px 10px; color: var(--ink-900); border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: .8rem; text-align: left; }
 .select-menu__option:hover,
 .select-menu__option:focus-visible { outline: 0; background: #f1f6fb; }
 .select-menu__option[aria-selected="true"] { color: var(--blue-800); background: #eaf4ff; font-weight: 750; }
-.select-menu__option:disabled { color: var(--ink-400); cursor: not-allowed; }
+.select-menu__option:disabled { color: var(--ink-700); cursor: not-allowed; }
 
 .card {
   min-width: 0;

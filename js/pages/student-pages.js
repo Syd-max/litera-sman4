@@ -2,7 +2,6 @@ import { confirmDialog, renderEmpty, renderError, setBusy, showToast } from "../
 import { icon } from "../components/icons.js";
 import { renderStudentDesktopNavigation, renderStudentNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
-import { setupCatalogScroll } from "../components/catalog-scroll.js";
 import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordBookSearch, toggleFavorite } from "../services/book-service.js";
 import { requireRole, signOut, watchStudentAccess } from "../services/auth-service.js";
 import { listMyLoans, listReadingHistory, requestLoan, requestLoanExtension, requestReturn } from "../services/loan-service.js";
@@ -145,7 +144,12 @@ async function renderCatalog() {
   const results = document.getElementById("catalog-results");
   const more = document.getElementById("catalog-more");
   const input = document.getElementById("catalog-query");
-  const observeBooks = setupCatalogScroll(header, main.querySelector(".catalog-sticky"), results);
+  const sticky = main.querySelector(".catalog-sticky");
+  const syncStickyPosition = () => { sticky.style.top = `${header.offsetHeight}px`; };
+  const headerResize = new ResizeObserver(syncStickyPosition);
+  headerResize.observe(header);
+  syncStickyPosition();
+  window.addEventListener("pagehide", event => { if (!event.persisted) headerResize.disconnect(); });
   let category = initialCategory;
   let categories = [];
   let allBooks = [];
@@ -155,10 +159,9 @@ async function renderCatalog() {
   function drawBooks() {
     const visible = filteredBooks.slice(0, visibleCount);
     document.getElementById("catalog-count").textContent = `${filteredBooks.length.toLocaleString("id-ID")} buku`;
-    if (visible.length) results.innerHTML = visible.map(book => `<div class="catalog-entry">${bookCard(book)}</div>`).join("");
+    if (visible.length) results.innerHTML = visible.map(bookCard).join("");
     else renderEmpty(results, { title: "Buku tidak ditemukan", message: "Coba kata kunci atau kategori lain.", iconName: "search" });
     more.hidden = visible.length >= filteredBooks.length;
-    observeBooks();
   }
 
   async function load(trackSearch = false) {

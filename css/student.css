@@ -118,8 +118,6 @@
 .catalog-page .category-filter { margin-top: 16px; }
 .catalog-page .section-heading { margin: 20px 0 0; }
 .catalog-page #catalog-results { padding-top: 18px; }
-.catalog-entry { min-width: 0; }
-.catalog-entry .book-card { transform-origin: center bottom; }
 .catalog-page .section-heading h2 { font-size: 1rem; }
 .catalog-page .section-heading > span { color: var(--ink-700); font-size: .78rem; }
 
