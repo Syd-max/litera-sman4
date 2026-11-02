@@ -3,7 +3,7 @@ import { icon } from "../components/icons.js";
 import { renderStudentDesktopNavigation, renderStudentNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordBookSearch, toggleFavorite } from "../services/book-service.js";
-import { requireRole, signOut } from "../services/auth-service.js";
+import { requireRole, signOut, watchStudentAccess } from "../services/auth-service.js";
 import { listMyLoans, listReadingHistory, requestLoan, requestLoanExtension, requestReturn } from "../services/loan-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { escapeHtml, formatDate, friendlyError, isCurrentReading, isDueSoon, queryParam, statusBadgeClass, statusLabel } from "../utils.js";
@@ -521,6 +521,11 @@ async function initialize() {
   if (page === "history") await renderHistory();
   if (page === "profile") await renderProfile(identity);
   if (page === "info") renderInfo();
+  const stopAccessWatch = await watchStudentAccess(identity, () => {
+    main.replaceChildren();
+    nav.replaceChildren();
+  });
+  window.addEventListener("pagehide", (event) => { if (!event.persisted) stopAccessWatch(); });
 }
 
 initialize();

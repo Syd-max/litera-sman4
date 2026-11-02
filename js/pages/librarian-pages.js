@@ -7,7 +7,7 @@ import { archiveBook, bookCoverStoragePath, getBook, isBookOutOfStock, listArchi
 import { requireRole, signOut } from "../services/auth-service.js";
 import { approveLoan, confirmReturn, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
-import { dashboardMetrics, listStudents, reviewStudent, subscribeToStudentRegistrations } from "../services/student-service.js";
+import { dashboardMetrics, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
 
@@ -107,7 +107,7 @@ async function renderDashboard(identity) {
 }
 
 async function renderStudents() {
-  main.innerHTML = `<div class="student-management-sticky"><section class="student-overview" aria-label="Ringkasan status siswa"><article class="student-overview--pending"><span>${icon("clock")}</span><div><strong id="student-stat-pending">0</strong><h2>Menunggu Validasi</h2><p>Perlu ditinjau pustakawan</p></div></article><article class="student-overview--active"><span>${icon("checkCircle")}</span><div><strong id="student-stat-active">0</strong><h2>Aktif</h2><p>Akun sudah terverifikasi</p></div></article><article class="student-overview--rejected"><span>${icon("close")}</span><div><strong id="student-stat-rejected">0</strong><h2>Ditolak</h2><p>Registrasi tidak disetujui</p></div></article></section><div class="toolbar toolbar--students"><div class="search-field">${icon("search")}<label class="sr-only" for="student-search">Cari siswa</label><input id="student-search" type="search" placeholder="Cari nama, kelas, email..."></div><div class="status-filter"><label class="sr-only" for="student-status">Filter status siswa</label><select id="student-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="ACTIVE">Aktif</option><option value="REJECTED">Ditolak</option></select></div></div></div><div id="student-results" aria-live="polite"></div>`;
+  main.innerHTML = `<div class="student-management-sticky"><section class="student-overview" aria-label="Ringkasan status siswa"><article class="student-overview--pending"><span>${icon("clock")}</span><div><strong id="student-stat-pending">0</strong><h2>Menunggu Validasi</h2><p>Perlu ditinjau pustakawan</p></div></article><article class="student-overview--active"><span>${icon("checkCircle")}</span><div><strong id="student-stat-active">0</strong><h2>Aktif</h2><p>Akun sudah terverifikasi</p></div></article><article class="student-overview--rejected"><span>${icon("close")}</span><div><strong id="student-stat-rejected">0</strong><h2>Ditolak</h2><p>Registrasi tidak disetujui</p></div></article></section><div class="toolbar toolbar--students"><div class="search-field">${icon("search")}<label class="sr-only" for="student-search">Cari siswa</label><input id="student-search" type="search" placeholder="Cari nama, kelas, email..."></div><div class="status-filter"><label class="sr-only" for="student-status">Filter status siswa</label><select id="student-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="ACTIVE">Aktif</option><option value="REJECTED">Ditolak</option><option value="SUSPENDED">Ditangguhkan</option></select></div></div></div><div id="student-results" aria-live="polite"></div>`;
   const host = document.getElementById("student-results");
   let students = [];
   let loading = false;
@@ -137,6 +137,7 @@ async function renderStudents() {
   }
 
   function openStudentDetail(student) {
+    const suspended = student.status === "SUSPENDED";
     const modal = document.createElement("div");
     modal.className = "modal";
     modal.setAttribute("role", "dialog");
@@ -153,9 +154,71 @@ async function renderStudents() {
         <div><dt>Tanggal daftar</dt><dd>${formatDate(student.created_at)}</dd></div>
         <div><dt>Status</dt><dd><span class="badge ${statusBadgeClass(student.status)}">${statusLabel(student.status)}</span></dd></div>
       </dl>
+      <div class="student-detail__actions">
+        ${["ACTIVE", "SUSPENDED"].includes(student.status) ? `<button class="button ${suspended ? "button--primary" : "button--danger"}" type="button" data-suspension>${icon(suspended ? "checkCircle" : "lock")} ${suspended ? "Pulihkan Akun" : "Tangguhkan Akun"}</button>` : ""}
+        <button class="button button--secondary" type="button" data-password-toggle aria-expanded="false" aria-controls="student-password-form">${icon("lock")} Reset Password</button>
+      </div>
+      <form id="student-password-form" class="student-password-form stack" hidden>
+        <div><h3>Password baru</h3><p>Password langsung diganti tanpa email. Sampaikan password baru kepada siswa secara aman.</p></div>
+        <div class="field"><label for="student-new-password">Password baru</label><input id="student-new-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required aria-describedby="student-password-hint"><small id="student-password-hint">8–72 karakter, dengan huruf besar, huruf kecil, dan angka.</small></div>
+        <div class="field"><label for="student-confirm-password">Konfirmasi password baru</label><input id="student-confirm-password" name="confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+        <button class="button button--primary" type="submit">Simpan Password Baru</button>
+      </form>
       <button class="button button--secondary button--block" type="button" data-close>Tutup</button>
     </div>`;
-    const close = () => modal.remove();
+    let busy = false;
+    const close = () => {
+      if (busy) return;
+      modal.querySelector("form").reset();
+      modal.remove();
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (event) => { if (event.key === "Escape" && [...document.querySelectorAll(".modal")].at(-1) === modal) close(); };
+    document.addEventListener("keydown", onKey);
+    const setModalBusy = (value) => {
+      busy = value;
+      modal.querySelectorAll("button, input").forEach(element => { element.disabled = value; });
+    };
+    const passwordToggle = modal.querySelector("[data-password-toggle]");
+    const passwordForm = modal.querySelector("form");
+    passwordToggle.addEventListener("click", () => {
+      passwordForm.hidden = !passwordForm.hidden;
+      passwordToggle.setAttribute("aria-expanded", String(!passwordForm.hidden));
+      if (passwordForm.hidden) passwordForm.reset();
+      else passwordForm.elements.password.focus();
+    });
+    modal.querySelector("[data-suspension]")?.addEventListener("click", async () => {
+      if (!await confirmDialog({
+        title: suspended ? "Pulihkan akun?" : "Tangguhkan akun?",
+        message: suspended ? `${student.full_name} akan dapat mengakses layanan kembali.` : `${student.full_name} tidak akan dapat mengakses katalog dan layanan siswa. Data serta riwayat pinjaman tetap tersimpan.`,
+        confirmLabel: suspended ? "Pulihkan" : "Tangguhkan", danger: !suspended
+      })) return;
+      setModalBusy(true);
+      try {
+        student = await setStudentSuspended(student.id, !suspended);
+        students = students.map(item => item.id === student.id ? student : item);
+        drawOverview(); draw();
+        setModalBusy(false); close(); openStudentDetail(student);
+        showToast(suspended ? "Akun siswa telah dipulihkan." : "Akun siswa telah ditangguhkan.", "success");
+      } catch (error) { showToast(friendlyError(error), "danger"); }
+      finally { setModalBusy(false); }
+    });
+    passwordForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = passwordForm.elements.password.value;
+      if (password !== passwordForm.elements.confirmation.value) { showToast("Konfirmasi password tidak sama.", "danger"); return; }
+      if (password.length < 8 || new TextEncoder().encode(password).length > 72 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+        showToast("Gunakan 8–72 karakter dengan huruf besar, huruf kecil, dan angka. Jika terlalu panjang, kurangi karakter khusus.", "danger"); return;
+      }
+      setModalBusy(true);
+      try {
+        await resetStudentPassword(student.id, password);
+        passwordForm.reset(); passwordForm.hidden = true;
+        passwordToggle.setAttribute("aria-expanded", "false");
+        showToast("Password siswa berhasil diganti. Gunakan password baru untuk login.", "success");
+      } catch (error) { showToast(friendlyError(error), "danger"); }
+      finally { setModalBusy(false); }
+    });
     modal.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
     modal.addEventListener("click", (event) => { if (event.target === modal) close(); });
     document.body.append(modal);

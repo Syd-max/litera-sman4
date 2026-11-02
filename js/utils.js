@@ -59,6 +59,9 @@ export function debounce(callback, delay = 300) {
 }
 
 export function friendlyError(error) {
+  if (error?.code === "STUDENT_PASSWORD_RESET") return error.message;
+  if (String(error?.message || "").includes("set_student_suspension")) return "Fitur penangguhan belum aktif. Jalankan student-account-management.sql di Supabase terlebih dahulu.";
+  if (String(error?.message || "").includes("invalid suspension transition")) return "Status akun sudah berubah atau akun ini belum dapat ditangguhkan. Muat ulang data siswa.";
   const code = String(error?.code || "").toLowerCase();
   const message = String(error?.message || "").toLowerCase();
   const status = Number(error?.status || error?.statusCode || 0);
@@ -96,6 +99,7 @@ export function statusLabel(status) {
     PENDING: "Menunggu",
     APPROVED: "Disetujui",
     REJECTED: "Ditolak",
+    SUSPENDED: "Ditangguhkan",
     BORROWED: "Dipinjam",
     RETURN_REQUESTED: "Menunggu Pengembalian",
     RETURNED: "Selesai",
@@ -107,7 +111,7 @@ export function statusLabel(status) {
 export function statusBadgeClass(status) {
   if (["ACTIVE", "BORROWED", "RETURNED"].includes(status)) return "badge--success";
   if (["PENDING", "APPROVED", "RETURN_REQUESTED"].includes(status)) return "badge--warning";
-  if (status === "REJECTED") return "badge--danger";
+  if (["REJECTED", "SUSPENDED"].includes(status)) return "badge--danger";
   return "badge--blue";
 }
 

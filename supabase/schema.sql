@@ -10,7 +10,7 @@ create table if not exists public.student_profiles (
   enrollment_year smallint not null check (enrollment_year between 2000 and 2100),
   major text not null check (char_length(trim(major)) between 1 and 80),
   email text not null,
-  status text not null default 'PENDING' check (status in ('PENDING', 'ACTIVE', 'REJECTED')),
+  status text not null default 'PENDING' check (status in ('PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED')),
   reviewed_by uuid,
   reviewed_at timestamptz,
   created_at timestamptz not null default now(),
@@ -25,6 +25,10 @@ create table if not exists public.librarian_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.student_profiles drop constraint if exists student_profiles_status_check;
+alter table public.student_profiles add constraint student_profiles_status_check
+  check (status in ('PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED'));
 
 alter table public.student_profiles
   drop constraint if exists student_profiles_reviewed_by_fkey;
@@ -350,6 +354,30 @@ begin
   return result;
 end;
 $$;
+
+create or replace function public.set_student_suspension(p_student_id uuid, p_suspend boolean)
+returns public.student_profiles
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare result public.student_profiles;
+begin
+  if not private.is_librarian() then raise exception 'not authorized'; end if;
+  if p_suspend is null then raise exception 'invalid suspension decision'; end if;
+  update public.student_profiles
+  set status = case when p_suspend then 'SUSPENDED' else 'ACTIVE' end
+  where id = p_student_id
+    and status = case when p_suspend then 'ACTIVE' else 'SUSPENDED' end
+    and not exists (select 1 from public.librarian_profiles where id = p_student_id)
+  returning * into result;
+  if result.id is null then raise exception 'invalid suspension transition'; end if;
+  return result;
+end;
+$$;
+
+revoke all on function public.set_student_suspension(uuid, boolean) from public, anon;
+grant execute on function public.set_student_suspension(uuid, boolean) to authenticated;
 
 create or replace function public.request_loan(p_book_id uuid)
 returns public.loans

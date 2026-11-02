@@ -47,6 +47,27 @@ export async function reviewStudent(studentId, decision) {
   return data;
 }
 
+export async function setStudentSuspended(studentId, suspended) {
+  const client = await getSupabase();
+  const { data, error } = await client.rpc("set_student_suspension", { p_student_id: studentId, p_suspend: suspended });
+  if (error) throw error;
+  return data;
+}
+
+export async function resetStudentPassword(studentId, password) {
+  const client = await getSupabase();
+  const { data: { session }, error } = await client.auth.getSession();
+  if (error) throw error;
+  if (!session?.access_token) throw new Error("Sesi pustakawan tidak tersedia. Silakan login kembali.");
+  const response = await fetch("/api/student-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ studentId, password })
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw Object.assign(new Error(result?.error || "Reset password belum tersedia. Pastikan fungsi server sudah diterapkan."), { code: "STUDENT_PASSWORD_RESET" });
+}
+
 export const dashboardWindowStart = (now = new Date()) => new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
 export async function dashboardMetrics() {

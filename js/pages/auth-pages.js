@@ -56,7 +56,7 @@ async function initializeLogin(expectedRole) {
       const result = await signIn(form.get("email").trim(), form.get("password"), expectedRole);
       window.location.assign(result.role === "LIBRARIAN" ? "./librarian/index.html" : "./student/index.html");
     } catch (error) {
-      const message = ["PENDING", "REJECTED", "WRONG_PORTAL"].includes(error.code) ? error.message : friendlyError(error);
+      const message = ["PENDING", "REJECTED", "SUSPENDED", "WRONG_PORTAL"].includes(error.code) ? error.message : friendlyError(error);
       showToast(message, "danger");
     } finally {
       setBusy(button, false);
@@ -138,6 +138,9 @@ setupFieldIcons();
 setupPasswordToggles();
 
 if (page === "student-login") initializeLogin("STUDENT");
+if (page === "student-login" && new URLSearchParams(window.location.search).get("account") === "suspended") {
+  showToast("Akun Anda ditangguhkan. Hubungi pustakawan untuk pemulihan akses.", "danger");
+}
 if (page === "admin-login") initializeLogin("LIBRARIAN");
 if (page === "register") initializeRegister();
 if (page === "update-password") initializeUpdatePassword();

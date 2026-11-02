@@ -1,6 +1,9 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import resetStudentPassword from "../api/student-password.js";
+
+try { process.loadEnvFile(); } catch (error) { if (error.code !== "ENOENT") throw error; }
 
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -44,7 +47,20 @@ function send(response, status, body, contentType = "text/plain; charset=utf-8")
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
-    const pathname = decodeURIComponent(url.pathname);
+    const pathname = decodeURIComponent(url.pathname).replace(/\\/g, "/");
+    if (pathname === "/api/student-password") {
+      const chunks = [];
+      let size = 0;
+      for await (const chunk of request) {
+        size += chunk.length;
+        if (size > 4096) { send(response, 413, '{"error":"Data terlalu besar."}', "application/json"); return; }
+        chunks.push(chunk);
+      }
+      request.body = Buffer.concat(chunks).toString("utf8");
+      await resetStudentPassword(request, response);
+      return;
+    }
+    if (pathname.toLowerCase().startsWith("/api/")) { send(response, 404, "Not found"); return; }
     if (pathname.split("/").some((segment) => segment.startsWith("."))) {
       send(response, 403, "Forbidden");
       return;

@@ -66,7 +66,7 @@ export async function signIn(email, password, expectedRole) {
   }
   if (identity.role === "STUDENT" && identity.profile.status !== "ACTIVE") {
     await client.auth.signOut({ scope: "local" });
-    const error = new Error(identity.profile.status === "REJECTED" ? "Akun ditolak oleh pengelola." : "Akun masih menunggu validasi pengelola.");
+    const error = new Error(identity.profile.status === "SUSPENDED" ? "Akun Anda ditangguhkan. Hubungi pustakawan untuk pemulihan akses." : identity.profile.status === "REJECTED" ? "Akun ditolak oleh pengelola." : "Akun masih menunggu validasi pengelola.");
     error.code = identity.profile.status;
     throw error;
   }
@@ -100,9 +100,52 @@ export async function requireRole(expectedRole) {
   }
   if (expectedRole === "STUDENT" && identity.profile.status !== "ACTIVE") {
     await signOut();
-    window.location.replace("../index.html");
+    window.location.replace(identity.profile.status === "SUSPENDED" ? "../index.html?account=suspended" : "../index.html");
     return null;
   }
   return identity;
+}
+
+export async function watchStudentAccess(identity, onBlocked) {
+  const client = await getSupabase();
+  let blocked = false;
+  let checking = false;
+  let stopped = false;
+  const block = async (status) => {
+    if (blocked || stopped) return;
+    blocked = true;
+    onBlocked();
+    try { await client.auth.signOut({ scope: "local" }); }
+    finally { window.location.replace(status === "SUSPENDED" ? "../index.html?account=suspended" : "../index.html"); }
+  };
+  const check = async () => {
+    if (checking || stopped || blocked) return;
+    checking = true;
+    try {
+      const { data, error } = await client.from("student_profiles").select("status").eq("id", identity.user.id).maybeSingle();
+      if (!error && data?.status && data.status !== "ACTIVE") await block(data.status);
+    } catch {
+      // Network failures must not log out an otherwise active student.
+    } finally { checking = false; }
+  };
+  const channel = client.channel(`student-access-${identity.user.id}`)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "student_profiles", filter: `id=eq.${identity.user.id}` }, (event) => {
+      if (event.new?.status && event.new.status !== "ACTIVE") void block(event.new.status).catch(() => {});
+    })
+    .subscribe((status) => { if (status === "SUBSCRIBED") void check(); });
+  const visible = () => { if (document.visibilityState === "visible") void check(); };
+  window.addEventListener("focus", check);
+  window.addEventListener("pageshow", check);
+  window.addEventListener("online", check);
+  document.addEventListener("visibilitychange", visible);
+  await check();
+  return () => {
+    stopped = true;
+    void client.removeChannel(channel);
+    window.removeEventListener("focus", check);
+    window.removeEventListener("pageshow", check);
+    window.removeEventListener("online", check);
+    document.removeEventListener("visibilitychange", visible);
+  };
 }
 
