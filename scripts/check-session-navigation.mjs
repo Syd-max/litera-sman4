@@ -25,7 +25,7 @@ async function check(page, identity, search = '', fail = false) {
     querySelector: () => ({ addEventListener() {} })
   };
   globalThis.navigationCase = { readIdentity: async () => { if (fail) throw new Error('network unavailable'); return identity; } };
-  const source = 'const getCurrentIdentity = () => globalThis.navigationCase.readIdentity();\n' + pageSource;
+  const source = `import { isStudentAccessExpired } from ${JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href)};\nconst getCurrentIdentity = () => globalThis.navigationCase.readIdentity();\n` + pageSource;
   const module = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#case-${index++}`);
   await module.restoreAuthNavigation();
   return { links, redirects, handlers };
@@ -52,10 +52,12 @@ try {
   assert.deepEqual(result.redirects, ['./student/index.html']);
   result = await check('admin-login', librarian);
   assert.ok(result.redirects.includes('./librarian/index.html'));
-  for (const status of ['PENDING', 'REJECTED']) {
+  for (const status of ['PENDING', 'REJECTED', 'SUSPENDED', 'EXPIRED']) {
     result = await check('student-login', { role: 'STUDENT', profile: { status } });
     assert.equal(result.redirects.length, 0);
   }
+  result = await check('student-login', { role: 'STUDENT', profile: { status: 'ACTIVE', access_expires_at: '2020-01-01T00:00:00Z' } });
+  assert.equal(result.redirects.length, 0);
   result = await check('student-login', student, '', true);
   assert.equal(result.redirects.length, 0);
   console.log('Back navigation, active-session redirects, portal isolation, and browser history checks passed.');

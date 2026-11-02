@@ -52,7 +52,8 @@ try {
   assert.equal((await request()).statusCode, 503);
 
   const service = await readFile(new URL("../js/services/auth-service.js", import.meta.url), "utf8");
-  const source = service.replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.accountTestClient;');
+  const source = service.replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.accountTestClient;')
+    .replace('"../account-lifecycle.js"', JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href));
   const { signIn, requireRole, watchStudentAccess } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
   let status = "ACTIVE", networkError = false, signouts = 0, blocked = 0, realtime;
   const redirects = [], listeners = new Map();

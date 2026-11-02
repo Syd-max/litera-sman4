@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase.js";
+import { enrollmentYears, isStudentAccessExpired, studentAccessExpiresAt } from "../account-lifecycle.js";
 
 async function resolveRole(client, userId) {
   const [{ data: student, error: studentError }, { data: librarian, error: librarianError }] = await Promise.all([
@@ -13,6 +14,8 @@ async function resolveRole(client, userId) {
 }
 
 export async function registerStudent({ fullName, className, enrollmentYear, major, email, password }) {
+  if (!enrollmentYears().includes(Number(enrollmentYear))) throw new Error("Pilih tahun masuk mulai 2024 sampai tahun ini.");
+  if (isStudentAccessExpired({ enrollment_year: enrollmentYear })) throw Object.assign(new Error("Masa aktif angkatan tersebut sudah berakhir."), { code: "EXPIRED" });
   // Refuse signup before it can send mail if the hosted Auth settings drift.
   const config = window.LITERA_CONFIG || {};
   const settingsResponse = await fetch(`${config.supabaseUrl}/auth/v1/settings`, {
@@ -64,6 +67,10 @@ export async function signIn(email, password, expectedRole) {
     error.code = "WRONG_PORTAL";
     throw error;
   }
+  if (identity.role === "STUDENT" && isStudentAccessExpired(identity.profile)) {
+    await client.auth.signOut({ scope: "local" });
+    throw Object.assign(new Error("Masa aktif akun tiga tahun ajaran telah berakhir. Hubungi pustakawan jika tahun masuk tidak sesuai."), { code: "EXPIRED" });
+  }
   if (identity.role === "STUDENT" && identity.profile.status !== "ACTIVE") {
     await client.auth.signOut({ scope: "local" });
     const error = new Error(identity.profile.status === "SUSPENDED" ? "Akun Anda ditangguhkan. Hubungi pustakawan untuk pemulihan akses." : identity.profile.status === "REJECTED" ? "Akun ditolak oleh pengelola." : "Akun masih menunggu validasi pengelola.");
@@ -98,6 +105,11 @@ export async function requireRole(expectedRole) {
     window.location.replace(expectedRole === "LIBRARIAN" ? "../admin-login.html" : "../index.html");
     return null;
   }
+  if (expectedRole === "STUDENT" && isStudentAccessExpired(identity.profile)) {
+    await signOut();
+    window.location.replace("../index.html?account=expired");
+    return null;
+  }
   if (expectedRole === "STUDENT" && identity.profile.status !== "ACTIVE") {
     await signOut();
     window.location.replace(identity.profile.status === "SUSPENDED" ? "../index.html?account=suspended" : "../index.html");
@@ -111,26 +123,44 @@ export async function watchStudentAccess(identity, onBlocked) {
   let blocked = false;
   let checking = false;
   let stopped = false;
+  let expiryTimer;
+  let profile = identity.profile;
+  const scheduleExpiry = () => {
+    clearTimeout(expiryTimer);
+    const expiry = studentAccessExpiresAt(profile);
+    if (expiry !== null) expiryTimer = setTimeout(() => void check(), Math.max(1, Math.min(expiry - Date.now(), 2147483647)));
+  };
   const block = async (status) => {
     if (blocked || stopped) return;
     blocked = true;
+    clearTimeout(expiryTimer);
     onBlocked();
     try { await client.auth.signOut({ scope: "local" }); }
-    finally { window.location.replace(status === "SUSPENDED" ? "../index.html?account=suspended" : "../index.html"); }
+    finally { window.location.replace(status === "EXPIRED" ? "../index.html?account=expired" : status === "SUSPENDED" ? "../index.html?account=suspended" : "../index.html"); }
   };
   const check = async () => {
     if (checking || stopped || blocked) return;
     checking = true;
     try {
-      const { data, error } = await client.from("student_profiles").select("status").eq("id", identity.user.id).maybeSingle();
-      if (!error && data?.status && data.status !== "ACTIVE") await block(data.status);
+      if (isStudentAccessExpired(profile)) { await block("EXPIRED"); return; }
+      const { data, error } = await client.from("student_profiles").select("*").eq("id", identity.user.id).maybeSingle();
+      if (!error && data) {
+        profile = data;
+        if (isStudentAccessExpired(profile)) await block("EXPIRED");
+        else if (data.status !== "ACTIVE") await block(data.status);
+      }
     } catch {
       // Network failures must not log out an otherwise active student.
-    } finally { checking = false; }
+    } finally { checking = false; if (!blocked && !stopped) scheduleExpiry(); }
   };
   const channel = client.channel(`student-access-${identity.user.id}`)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "student_profiles", filter: `id=eq.${identity.user.id}` }, (event) => {
-      if (event.new?.status && event.new.status !== "ACTIVE") void block(event.new.status).catch(() => {});
+      if (event.new?.status) {
+        profile = event.new;
+        if (isStudentAccessExpired(profile)) void block("EXPIRED").catch(() => {});
+        else if (event.new.status !== "ACTIVE") void block(event.new.status).catch(() => {});
+        else scheduleExpiry();
+      }
     })
     .subscribe((status) => { if (status === "SUBSCRIBED") void check(); });
   const visible = () => { if (document.visibilityState === "visible") void check(); };
@@ -141,6 +171,7 @@ export async function watchStudentAccess(identity, onBlocked) {
   await check();
   return () => {
     stopped = true;
+    clearTimeout(expiryTimer);
     void client.removeChannel(channel);
     window.removeEventListener("focus", check);
     window.removeEventListener("pageshow", check);

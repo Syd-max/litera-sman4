@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase.js";
+import { isStudentAccessExpired } from "../account-lifecycle.js";
 
 const REGISTRATION_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 let lastRegistrationSync = 0;
@@ -15,7 +16,7 @@ export async function listPendingStudents() {
   await syncStudentRegistrations(client);
   const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").eq("status", "PENDING").order("created_at", { ascending: false });
   if (error) throw error;
-  return data || [];
+  return (data || []).filter(student => !isStudentAccessExpired(student));
 }
 
 export async function listStudents() {
@@ -23,7 +24,7 @@ export async function listStudents() {
   await syncStudentRegistrations(client);
   const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").order("created_at", { ascending: false });
   if (error) throw error;
-  return data || [];
+  return (data || []).map(student => isStudentAccessExpired(student) ? { ...student, status: "EXPIRED" } : student);
 }
 
 export async function subscribeToStudentRegistrations(onChange) {

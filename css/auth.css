@@ -98,6 +98,9 @@
 
 .auth-form .field input::placeholder { color: rgba(255, 255, 255, 0.6); }
 .auth-form .field select option { color: var(--ink-950); }
+.auth-form .select-menu__button { min-height: 50px; padding-left: 44px; color: #fff; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.14); }
+.auth-form .select-menu__button::after { border-color: #fff; }
+.auth-form .field-icon { z-index: 1; pointer-events: none; }
 .auth-form .field__hint { color: rgba(255, 255, 255, 0.72); }
 
 .auth-link {

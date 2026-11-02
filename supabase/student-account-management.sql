@@ -4,7 +4,7 @@ begin;
 
 alter table public.student_profiles drop constraint if exists student_profiles_status_check;
 alter table public.student_profiles add constraint student_profiles_status_check
-  check (status in ('PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED'));
+  check (status in ('PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED', 'EXPIRED'));
 
 create or replace function public.set_student_suspension(p_student_id uuid, p_suspend boolean)
 returns public.student_profiles

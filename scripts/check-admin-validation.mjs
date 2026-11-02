@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { friendlyError } from '../js/utils.js';
+import { enrollmentYears } from '../js/account-lifecycle.js';
 
 const service = await readFile(new URL('../js/services/auth-service.js', import.meta.url), 'utf8');
-const moduleSource = service.replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.validationTestClient;');
+const moduleSource = service.replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.validationTestClient;')
+  .replace('"../account-lifecycle.js"', JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href));
 const { registerStudent, signIn } = await import(`data:text/javascript;base64,${Buffer.from(moduleSource).toString('base64')}`);
 const originalFetch = globalThis.fetch;
 globalThis.window = { LITERA_CONFIG: { supabaseUrl: 'https://example.test', supabasePublishableKey: 'public-test-key' } };
@@ -21,7 +23,7 @@ globalThis.validationTestClient = {
   from: table => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === 'student_profiles' ? { status } : null, error: null }) }) }) })
 };
 try {
-  const payload = { fullName: 'Test Student', className: 'X 1', enrollmentYear: '2026', major: 'IPA', email: 'student@example.test', password: 'TestOnly123' };
+  const payload = { fullName: 'Test Student', className: 'X 1', enrollmentYear: String(enrollmentYears().at(-1)), major: 'IPA', email: 'student@example.test', password: 'TestOnly123' };
   await assert.rejects(registerStudent(payload), error => error.code === 'EMAIL_CONFIRMATION_ENABLED');
   assert.equal(signupCalls, 0, 'Confirm-email ON must never reach signup or send email.');
   confirmations = true;
