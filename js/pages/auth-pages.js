@@ -1,9 +1,31 @@
 import { icon } from "../components/icons.js";
 import { setBusy, showToast } from "../components/feedback.js";
 import { friendlyError } from "../utils.js";
-import { registerStudent, signIn, updatePassword } from "../services/auth-service.js";
+import { getCurrentIdentity, registerStudent, signIn, updatePassword } from "../services/auth-service.js";
 
 const page = document.body.dataset.page;
+
+export async function restoreAuthNavigation() {
+  if (!["student-login", "admin-login", "forgot-password"].includes(page)) return;
+  const adminPortal = page === "admin-login" || new URLSearchParams(window.location.search).get("portal") === "admin";
+  const backLinks = document.querySelectorAll("[data-auth-back]");
+  for (const link of backLinks) link.href = adminPortal ? "./admin-login.html" : "./index.html";
+  try {
+    const identity = await getCurrentIdentity();
+    if (!identity || (identity.role !== "LIBRARIAN" && !(identity.role === "STUDENT" && identity.profile?.status === "ACTIVE"))) return;
+    if (page === "forgot-password") {
+      for (const link of backLinks) {
+        link.href = identity.role === "LIBRARIAN" ? "./librarian/index.html" : "./student/profile.html";
+        link.setAttribute("aria-label", "Kembali ke akun");
+        if (link.classList.contains("forgot-login")) link.textContent = "Kembali ke Akun";
+      }
+    } else {
+      window.location.replace(identity.role === "LIBRARIAN" ? "./librarian/index.html" : "./student/index.html");
+    }
+  } catch {
+    // A temporary network failure must not clear a stored login session.
+  }
+}
 
 function setupPasswordToggles() {
   document.querySelectorAll("[data-password-toggle]").forEach((button) => {
@@ -119,4 +141,9 @@ if (page === "student-login") initializeLogin("STUDENT");
 if (page === "admin-login") initializeLogin("LIBRARIAN");
 if (page === "register") initializeRegister();
 if (page === "update-password") initializeUpdatePassword();
+
+restoreAuthNavigation();
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) restoreAuthNavigation();
+});
 

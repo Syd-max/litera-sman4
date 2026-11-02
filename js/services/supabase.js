@@ -2,7 +2,9 @@ let clientPromise;
 
 function getAuthStorageKey() {
   const path = window.location.pathname.toLowerCase();
-  const portal = path.includes("/librarian/") || path.endsWith("/admin-login.html") ? "admin" : "student";
+  const sharedAuthPage = path.endsWith("/forgot-password.html") || path.endsWith("/update-password.html");
+  const adminReturn = sharedAuthPage && new URLSearchParams(window.location.search).get("portal") === "admin";
+  const portal = path.includes("/librarian/") || path.endsWith("/admin-login.html") || adminReturn ? "admin" : "student";
   return `litera-${portal}-auth`;
 }
 
