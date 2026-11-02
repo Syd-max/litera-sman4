@@ -13,7 +13,7 @@ async function syncStudentRegistrations(client) {
 export async function listPendingStudents() {
   const client = await getSupabase();
   await syncStudentRegistrations(client);
-  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").eq("status", "PENDING").order("created_at");
+  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").eq("status", "PENDING").order("created_at", { ascending: false });
   if (error) throw error;
   return data || [];
 }
@@ -21,7 +21,7 @@ export async function listPendingStudents() {
 export async function listStudents() {
   const client = await getSupabase();
   await syncStudentRegistrations(client);
-  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").order("full_name");
+  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").order("created_at", { ascending: false });
   if (error) throw error;
   return data || [];
 }
