@@ -122,18 +122,40 @@
 .student-row__identity h2 { overflow: hidden; margin: 0; font-size: .94rem; text-overflow: ellipsis; white-space: nowrap; }
 .student-row__identity p { overflow: hidden; margin: 4px 0 0; color: var(--ink-500); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .student-row__actions { display: flex; grid-column: 1 / -1; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.student-detail { width: min(100%,640px); }
-.student-detail .modal__header { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
-.student-detail__list { overflow: hidden; margin: 0 0 20px; border: 1px solid var(--border); border-radius: 14px; }
-.student-detail__list div { display: grid; min-width: 0; min-height: 54px; grid-template-columns: 150px minmax(0,1fr); align-items: center; gap: 14px; padding: 11px 14px; border-bottom: 1px solid var(--border); background: #fff; }
+.student-detail { width: min(100%,640px); max-height: calc(100dvh - 40px); padding: 20px; }
+.student-detail .modal__header { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.student-detail .modal__header p { margin: 3px 0 0; }
+.student-detail__list { overflow: hidden; margin: 0 0 12px; border: 1px solid var(--border); border-radius: 14px; }
+.student-detail__list div { display: grid; min-width: 0; min-height: 42px; grid-template-columns: 130px minmax(0,1fr); align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: #fff; }
 .student-detail__list div:last-child { border-bottom: 0; }
-.student-detail__list dt { display: flex; align-self: stretch; align-items: center; margin: -11px 0 -11px -14px; padding: 11px 14px; color: #667891; background: var(--surface-muted); font-size: .74rem; font-weight: 700; }
+.student-detail__list dt { display: flex; align-self: stretch; align-items: center; margin: -8px 0 -8px -12px; padding: 8px 12px; color: #667891; background: var(--surface-muted); font-size: .74rem; font-weight: 700; }
 .student-detail__list dd { overflow-wrap: anywhere; margin: 0; color: var(--ink-900); font-size: .9rem; font-weight: 700; }
-.student-detail__actions { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 10px; margin-bottom: 14px; }
-.student-password-form { margin-bottom: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); }
+.student-detail__actions { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 10px; margin-bottom: 10px; }
+.student-password-form { gap: 12px; margin-bottom: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); }
 .student-password-form h3 { margin-bottom: 5px; font-size: .95rem; }
 .student-password-form p, .student-password-form small { color: var(--ink-500); font-size: .8rem; }
+.student-password-form p { margin-bottom: 0; }
 .student-password-form .field input { background: #fff; }
+
+@media (min-width: 680px) {
+  .student-detail:has(.student-password-form:not([hidden])) { display: grid; width: min(100%,920px); grid-template-columns: minmax(0,1fr) minmax(0,1fr); column-gap: 16px; }
+  .student-detail:has(.student-password-form:not([hidden])) .modal__header { grid-column: 1 / -1; }
+  .student-detail:has(.student-password-form:not([hidden])) .student-detail__list { grid-column: 1; grid-row: 2; align-self: start; }
+  .student-detail:has(.student-password-form:not([hidden])) .student-detail__list div { grid-template-columns: 104px minmax(0,1fr); }
+  .student-detail:has(.student-password-form:not([hidden])) .student-detail__actions { grid-column: 1; grid-row: 3; align-self: end; grid-template-columns: minmax(0,1fr); }
+  .student-detail:has(.student-password-form:not([hidden])) .student-password-form { grid-column: 2; grid-row: 2 / span 2; align-self: start; }
+  .student-detail:has(.student-password-form:not([hidden])) > [data-close] { grid-column: 1 / -1; }
+}
+
+@media (min-width: 680px) and (max-height: 640px) {
+  .student-detail { padding: 16px; }
+  .student-detail__list div { min-height: 38px; padding-block: 6px; }
+  .student-detail__list dt { margin-block: -6px; padding-block: 6px; }
+}
+
+@media (max-width: 679px) {
+  .student-detail:has(.student-password-form:not([hidden])) .student-detail__list { display: none; }
+}
 
 .admin-book-row { display: grid; grid-template-columns: 58px minmax(0,1fr); align-items: center; gap: 12px 14px; }
 .admin-book-row > img { width: 58px; height: 78px; grid-row: 1; border-radius: 8px; object-fit: cover; background: #eef3f8; }
@@ -337,8 +359,8 @@ html:has(.admin-shell[data-page="loans"]), html:has(.admin-shell[data-page="tran
   .student-row { grid-template-columns: minmax(0,1fr) auto; }
   .student-row__actions { justify-content: stretch; }
   .student-row__actions .button { flex: 1; padding-inline: 9px; }
-  .student-detail__list div { grid-template-columns: minmax(0,1fr); gap: 4px; padding-block: 12px; }
-  .student-detail__list dt { margin: 0; padding: 0; background: transparent; }
+  .student-detail { padding: 16px; }
+  .student-detail__list div { grid-template-columns: 92px minmax(0,1fr); gap: 10px; }
   .loan-detail__heading { grid-template-columns: minmax(0,1fr); }
   .admin-book-row__meta { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
   .admin-book-row__meta span:first-child { grid-column: 1 / -1; }
