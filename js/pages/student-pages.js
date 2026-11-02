@@ -282,7 +282,7 @@ async function renderBookDetail() {
         <section class="card availability-card ${available ? "" : "availability-card--none"}"><p>Status Ketersediaan</p><h2>${available ? "Tersedia" : "Tidak Tersedia"}</h2><p>${available ? "Buku dapat diajukan untuk dipinjam." : "Seluruh eksemplar sedang dipinjam."}</p></section>
       </div>
       <div class="detail-actions stack">
-        <button class="button button--secondary button--block" id="favorite-button" type="button">${icon("heart")}<span>${favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span></button>
+        <button class="button button--secondary button--block" id="favorite-button" type="button" aria-pressed="${favorite}">${icon("heart")}<span>${favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span></button>
         <button class="button button--primary button--block" id="loan-button" type="button" ${available ? "" : "disabled"}>${icon("clipboard")}<span>${available ? "Ajukan Peminjaman" : "Buku Tidak Tersedia"}</span></button>
       </div>`;
     let favoriteState = favorite;
@@ -291,10 +291,13 @@ async function renderBookDetail() {
       setBusy(button, true);
       try {
         favoriteState = await toggleFavorite(bookId, favoriteState);
-        button.innerHTML = `${icon("heart")}<span>${favoriteState ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span>`;
         showToast(favoriteState ? "Buku ditambahkan ke favorit." : "Buku dihapus dari favorit.", "success");
       } catch (error) { showToast(friendlyError(error), "danger"); }
-      finally { button.disabled = false; }
+      finally {
+        button.setAttribute("aria-pressed", String(favoriteState));
+        button.innerHTML = `${icon("heart")}<span>${favoriteState ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span>`;
+        button.disabled = false;
+      }
     });
     document.getElementById("loan-button").addEventListener("click", async (event) => {
       const confirmed = await confirmDialog({ title: "Ajukan peminjaman?", message: `Pengajuan untuk “${book.title}” akan dikirim ke pengelola.`, confirmLabel: "Ajukan Peminjaman" });
