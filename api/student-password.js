@@ -63,6 +63,7 @@ export default async function handler(request, response) {
     if (!Array.isArray(students) || students.length !== 1) return reply(404, "Akun siswa tidak ditemukan.");
     if (!Array.isArray(librarians) || librarians.length) return reply(403, "Password akun pustakawan tidak dapat diubah melalui menu ini.");
 
+    // Auth revokes every session atomically when an admin updates the password.
     const update = await fetch(`${url}/auth/v1/admin/users/${body.studentId}`, {
       method: "PUT", headers: { ...adminHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ password }), signal: AbortSignal.timeout(10000)
@@ -72,6 +73,12 @@ export default async function handler(request, response) {
       if (update.status === 429) return reply(429, "Permintaan terlalu sering. Tunggu sebentar sebelum mencoba lagi.");
       return reply(update.status >= 500 ? 502 : 400, "Password belum berhasil diubah. Gunakan password baru yang kuat lalu coba lagi.");
     }
+    // Wake connected devices; missed messages are covered by their session checks.
+    await fetch(`${url}/realtime/v1/api/broadcast`, {
+      method: "POST", headers: { ...adminHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ topic: `student-access-${body.studentId}`, event: "session-reset", payload: {}, private: false }] }),
+      signal: AbortSignal.timeout(3000)
+    }).catch(() => {});
     return reply(200);
   } catch { return reply(502, "Layanan akun belum dapat dihubungi. Coba lagi nanti."); }
 }

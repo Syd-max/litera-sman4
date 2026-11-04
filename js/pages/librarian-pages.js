@@ -237,7 +237,7 @@ async function renderStudents() {
         await resetStudentPassword(student.id, password);
         passwordForm.reset(); passwordForm.hidden = true;
         passwordToggle.setAttribute("aria-expanded", "false");
-        showToast("Password siswa berhasil diganti. Gunakan password baru untuk login.", "success");
+        showToast("Password siswa berhasil diganti. Semua perangkat harus login ulang dengan password baru.", "success");
       } catch (error) { showToast(friendlyError(error), "danger"); }
       finally { setModalBusy(false); }
     });

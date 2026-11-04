@@ -27,6 +27,8 @@ globalThis.document = { visibilityState: "visible", addEventListener() {}, remov
 globalThis.lifecycleClient = {
   auth: {
     getSession: async () => ({ data: { session: { user: { id: "student" } } }, error: null }),
+    getUser: async () => ({ data: { user: { id: "student" } }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
     signInWithPassword: async () => ({ data: { user: { id: "student" } }, error: null }),
     signOut: async () => { signedOut++; return { error: null }; }
   },

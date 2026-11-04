@@ -119,12 +119,26 @@ export async function updatePassword(password) {
   return client.auth.updateUser({ password });
 }
 
+async function verifiedSessionUser(client) {
+  const { data: { user }, error } = await client.auth.getUser();
+  if (error) {
+    if (![401, 403].includes(error.status) && error.name !== "AuthSessionMissingError") throw error;
+    return null;
+  }
+  return user;
+}
+
 export async function getCurrentIdentity() {
   const client = await getSupabase();
   const { data: { session }, error } = await client.auth.getSession();
   if (error) throw error;
   if (!session?.user) return null;
-  return { user: session.user, ...(await resolveRole(client, session.user.id)) };
+  const user = await verifiedSessionUser(client);
+  if (!user) {
+    await client.auth.signOut({ scope: "local" });
+    return null;
+  }
+  return { user, ...(await resolveRole(client, user.id)) };
 }
 
 export async function requireRole(expectedRole) {
@@ -152,6 +166,7 @@ export async function watchStudentAccess(identity, onBlocked) {
   let checking = false;
   let stopped = false;
   let expiryTimer;
+  let lastSignalCheck = -Infinity;
   let profile = identity.profile;
   const scheduleExpiry = () => {
     clearTimeout(expiryTimer);
@@ -171,6 +186,7 @@ export async function watchStudentAccess(identity, onBlocked) {
     checking = true;
     try {
       if (isStudentAccessExpired(profile)) { await block("EXPIRED"); return; }
+      if (!await verifiedSessionUser(client)) { await block("SESSION_ENDED"); return; }
       const { data, error } = await client.from("student_profiles").select("*").eq("id", identity.user.id).maybeSingle();
       if (!error && data) {
         profile = data;
@@ -182,6 +198,12 @@ export async function watchStudentAccess(identity, onBlocked) {
     } finally { checking = false; if (!blocked && !stopped) scheduleExpiry(); }
   };
   const channel = client.channel(`student-access-${identity.user.id}`)
+    // Broadcast only requests a server check; its payload never authorizes a logout.
+    .on("broadcast", { event: "session-reset" }, () => {
+      if (Date.now() - lastSignalCheck < 2000) return;
+      lastSignalCheck = Date.now();
+      void check();
+    })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "student_profiles", filter: `id=eq.${identity.user.id}` }, (event) => {
       if (event.new?.status) {
         profile = event.new;
@@ -191,7 +213,11 @@ export async function watchStudentAccess(identity, onBlocked) {
       }
     })
     .subscribe((status) => { if (status === "SUBSCRIBED") void check(); });
+  const { data: { subscription } } = client.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") setTimeout(() => void block("SESSION_ENDED"), 0);
+  });
   const visible = () => { if (document.visibilityState === "visible") void check(); };
+  const sessionTimer = setInterval(visible, 30000);
   window.addEventListener("focus", check);
   window.addEventListener("pageshow", check);
   window.addEventListener("online", check);
@@ -200,6 +226,8 @@ export async function watchStudentAccess(identity, onBlocked) {
   return () => {
     stopped = true;
     clearTimeout(expiryTimer);
+    clearInterval(sessionTimer);
+    subscription.unsubscribe();
     void client.removeChannel(channel);
     window.removeEventListener("focus", check);
     window.removeEventListener("pageshow", check);
