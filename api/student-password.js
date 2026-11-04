@@ -16,7 +16,7 @@ export default async function handler(request, response) {
 
   const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
   const publicKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-  const secretKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secretKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url?.startsWith("https://") || !publicKey || !secretKey) return reply(503, "Reset password belum dikonfigurasi di server. Hubungi pengelola website.");
   let body;
   try {
@@ -29,8 +29,17 @@ export default async function handler(request, response) {
     return reply(400, "Gunakan 8–72 karakter dengan huruf besar, huruf kecil, dan angka. Jika terlalu panjang, kurangi karakter khusus.");
   }
   const userHeaders = { apikey: publicKey, Authorization: authorization };
-  const adminHeaders = { apikey: secretKey, Authorization: `Bearer ${secretKey}` };
+  const adminHeaders = { apikey: secretKey };
+  // New secret keys are not JWTs; legacy service_role JWTs still use Bearer.
+  if (!secretKey.startsWith("sb_secret_")) adminHeaders.Authorization = `Bearer ${secretKey}`;
   const read = (path, headers) => fetch(`${url}${path}`, { headers, signal: AbortSignal.timeout(10000) });
+  const adminFailure = async (upstream) => {
+    const details = await upstream.json().catch(() => ({}));
+    if (details.code === "42501") return reply(503, "Izin pemeriksaan akun siswa belum aktif. Jalankan student-password-permissions.sql di Supabase.");
+    if ([401, 403].includes(upstream.status)) return reply(503, "Key admin Supabase di server tidak valid atau belum memiliki akses admin. Periksa SUPABASE_SERVICE_ROLE_KEY di Vercel, lalu redeploy.");
+    if (upstream.status === 429) return reply(429, "Permintaan terlalu sering. Tunggu sebentar sebelum mencoba lagi.");
+    return reply(502, "Akun siswa belum dapat diperiksa. Coba lagi nanti.");
+  };
   try {
     // Verify the token with Auth, then verify the caller's database role.
     const userResponse = await read("/auth/v1/user", userHeaders);
@@ -47,7 +56,8 @@ export default async function handler(request, response) {
       read(`/rest/v1/student_profiles?select=id&id=eq.${body.studentId}`, adminHeaders),
       read(`/rest/v1/librarian_profiles?select=id&id=eq.${body.studentId}`, adminHeaders)
     ]);
-    if (!studentResponse.ok || !librarianResponse.ok) return reply(502, "Akun siswa belum dapat diperiksa.");
+    if (!studentResponse.ok) return await adminFailure(studentResponse);
+    if (!librarianResponse.ok) return await adminFailure(librarianResponse);
     const students = await studentResponse.json();
     const librarians = await librarianResponse.json();
     if (!Array.isArray(students) || students.length !== 1) return reply(404, "Akun siswa tidak ditemukan.");
@@ -58,6 +68,7 @@ export default async function handler(request, response) {
       body: JSON.stringify({ password }), signal: AbortSignal.timeout(10000)
     });
     if (!update.ok) {
+      if ([401, 403].includes(update.status)) return await adminFailure(update);
       if (update.status === 429) return reply(429, "Permintaan terlalu sering. Tunggu sebentar sebelum mencoba lagi.");
       return reply(update.status >= 500 ? 502 : 400, "Password belum berhasil diubah. Gunakan password baru yang kuat lalu coba lagi.");
     }

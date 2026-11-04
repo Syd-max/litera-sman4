@@ -747,6 +747,9 @@ alter table public.reading_history enable row level security;
 
 revoke all on all tables in schema public from anon, authenticated;
 grant select on public.student_profiles, public.librarian_profiles, public.categories, public.books, public.book_search_stats, public.favorites, public.loans, public.loan_status_history, public.reading_history to authenticated;
+-- Password reset checks need only profile IDs, through the server-only admin key.
+grant usage on schema public to service_role;
+grant select (id) on public.student_profiles, public.librarian_profiles to service_role;
 grant insert, delete on public.favorites to authenticated;
 grant update (full_name, class_name, major) on public.student_profiles to authenticated;
 grant usage, select on all sequences in schema public to authenticated;

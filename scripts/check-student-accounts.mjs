@@ -9,13 +9,16 @@ const originalFetch = globalThis.fetch;
 const envNames = ["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"];
 const originalEnv = envNames.map(name => process.env[name]);
 Object.assign(process.env, { SUPABASE_URL: "https://accounts.example.test", SUPABASE_PUBLISHABLE_KEY: "public-test", SUPABASE_SERVICE_ROLE_KEY: "secret-test" });
-let isLibrarian, hasStudent, targetLibrarian, invalidToken, updateStatus, requests;
-function reset() { isLibrarian = true; hasStudent = true; targetLibrarian = false; invalidToken = false; updateStatus = 200; requests = []; }
+let isLibrarian, hasStudent, targetLibrarian, invalidToken, updateStatus, adminReadStatus, adminReadCode, requests;
+function reset() { isLibrarian = true; hasStudent = true; targetLibrarian = false; invalidToken = false; updateStatus = 200; adminReadStatus = 200; adminReadCode = ""; requests = []; process.env.SUPABASE_SERVICE_ROLE_KEY = "secret-test"; }
 const result = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
 globalThis.fetch = async (url, options) => {
   requests.push({ url, ...options });
   if (url.endsWith("/auth/v1/user")) return result(invalidToken ? {} : { id: librarianId }, invalidToken ? 401 : 200);
   if (url.includes("/librarian_profiles") && options.headers.apikey === "public-test") return result(isLibrarian ? [{ id: librarianId }] : []);
+  if (options.headers.apikey?.startsWith("sb_secret_")) assert.equal(options.headers.Authorization, undefined, "Secret keys must not be passed as a JWT");
+  else assert.equal(options.headers.Authorization, "Bearer secret-test");
+  if (url.includes("/rest/v1/") && adminReadStatus !== 200) return result({ code: adminReadCode }, adminReadStatus);
   if (url.includes("/student_profiles")) return result(hasStudent ? [{ id: studentId }] : []);
   if (url.includes("/librarian_profiles")) return result(targetLibrarian ? [{ id: studentId }] : []);
   if (url.endsWith(`/auth/v1/admin/users/${studentId}`)) return result({ id: studentId }, updateStatus);
@@ -35,6 +38,10 @@ try {
   reset(); isLibrarian = false; assert.equal((await request()).statusCode, 403); assert.equal(requests.length, 2);
   reset(); hasStudent = false; assert.equal((await request()).statusCode, 404); assert.ok(requests.every(r => r.method !== "PUT"));
   reset(); targetLibrarian = true; assert.equal((await request()).statusCode, 403); assert.ok(requests.every(r => r.method !== "PUT"));
+  reset(); adminReadStatus = 403; adminReadCode = "42501";
+  let denied = await request(); assert.equal(denied.statusCode, 503); assert.match(denied.body.error, /student-password-permissions\.sql/); assert.ok(requests.every(r => r.method !== "PUT"));
+  reset(); adminReadStatus = 401;
+  denied = await request(); assert.equal(denied.statusCode, 503); assert.match(denied.body.error, /SUPABASE_SERVICE_ROLE_KEY/); assert.ok(requests.every(r => r.method !== "PUT"));
   reset(); assert.equal((await request({ body: { studentId, password: "weak" } })).statusCode, 400); assert.equal(requests.length, 0);
   reset(); assert.equal((await request({ body: { studentId, password: "Aa1" + "x".repeat(70) } })).statusCode, 400); assert.equal(requests.length, 0);
   reset(); assert.equal((await request({ body: { studentId, password: "Aa1" + "é".repeat(35) } })).statusCode, 400); assert.equal(requests.length, 0);
@@ -46,6 +53,11 @@ try {
   assert.equal(update.headers.apikey, "secret-test");
   assert.equal(requests[0].headers.Authorization, "Bearer caller-test-token");
   assert.ok(requests.every(r => !/recover|invite|signup|otp/.test(r.url)), "Reset must not send emails or create users");
+  reset(); process.env.SUPABASE_SERVICE_ROLE_KEY = "sb_secret_test_only";
+  assert.equal((await request()).statusCode, 200);
+  const secretUpdate = requests.find(r => r.method === "PUT");
+  assert.equal(secretUpdate.headers.apikey, "sb_secret_test_only"); assert.equal(secretUpdate.headers.Authorization, undefined);
+  assert.deepEqual(JSON.parse(secretUpdate.body), { password: "NewStudent123" });
   reset(); updateStatus = 429; assert.equal((await request()).statusCode, 429);
   reset(); globalThis.fetch = async () => { throw new Error("secret-test upstream detail"); }; assert.equal((await request()).statusCode, 502);
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -101,6 +113,9 @@ try {
   assert.match(sql, /and status = case when p_suspend then 'ACTIVE' else 'SUSPENDED' end/);
   assert.match(sql, /revoke all .* from public, anon/);
   assert.doesNotMatch(sql, /delete from|update auth\.users|encrypted_password/i);
+  const permissions = await readFile(new URL("../supabase/student-password-permissions.sql", import.meta.url), "utf8");
+  assert.match(permissions, /grant select \(id\) on public\.student_profiles, public\.librarian_profiles to service_role/);
+  assert.doesNotMatch(permissions, /to anon|to authenticated|disable row level security|update |delete from/i);
   assert.equal(statusLabel("SUSPENDED"), "Ditangguhkan"); assert.equal(statusBadgeClass("SUSPENDED"), "badge--danger");
   console.log("Student suspension, restoration gates, session guard, and server password-reset authorization checks passed.");
 } finally {
