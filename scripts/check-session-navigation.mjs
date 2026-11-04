@@ -14,9 +14,11 @@ async function check(page, identity, search = '', fail = false) {
     href: '', textContent: '', setAttribute() {}, classList: { contains: name => button && name === 'forgot-login' }
   }));
   const redirects = [];
+  const toasts = [], historyChanges = [];
   const handlers = {};
   globalThis.window = {
-    location: { pathname: `/${page === 'student-login' ? 'index' : page}.html`, search, replace: target => redirects.push(target) },
+    location: { pathname: `/${page === 'student-login' ? 'index' : page}.html`, search, hash: '#login', replace: target => redirects.push(target) },
+    history: { state: null, replaceState: (_, __, target) => historyChanges.push(target) },
     addEventListener: (name, handler) => { handlers[name] = handler; }
   };
   globalThis.document = {
@@ -24,11 +26,11 @@ async function check(page, identity, search = '', fail = false) {
     querySelectorAll: selector => selector === '[data-auth-back]' ? links : [],
     querySelector: () => ({ addEventListener() {} })
   };
-  globalThis.navigationCase = { readIdentity: async () => { if (fail) throw new Error('network unavailable'); return identity; } };
-  const source = `import { isStudentAccessExpired } from ${JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href)};\nconst getCurrentIdentity = () => globalThis.navigationCase.readIdentity();\n` + pageSource;
+  globalThis.navigationCase = { toasts, readIdentity: async () => { if (fail) throw new Error('network unavailable'); return identity; } };
+  const source = `import { isStudentAccessExpired } from ${JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href)};\nconst getCurrentIdentity = () => globalThis.navigationCase.readIdentity(); const showToast = message => globalThis.navigationCase.toasts.push(message);\n` + pageSource;
   const module = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#case-${index++}`);
   await module.restoreAuthNavigation();
-  return { links, redirects, handlers };
+  return { links, redirects, handlers, toasts, historyChanges };
 }
 
 try {
@@ -60,6 +62,11 @@ try {
   assert.equal(result.redirects.length, 0);
   result = await check('student-login', student, '', true);
   assert.equal(result.redirects.length, 0);
+  result = await check('student-login', null, '?account=expired&keep=value');
+  assert.match(result.toasts[0], /Masa aktif/);
+  assert.deepEqual(result.historyChanges, ['/index.html?keep=value#login'], 'Consume the old expiry message without changing other query parameters');
+  result = await check('student-login', null);
+  assert.equal(result.toasts.length, 0, 'Returning to login must not repeat an old expired-account message');
   console.log('Back navigation, active-session redirects, portal isolation, and browser history checks passed.');
 } finally {
   delete globalThis.window;

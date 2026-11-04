@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { enrollmentYears, isStudentAccessExpired, studentAccessExpiresAt } from "../js/account-lifecycle.js";
+import { enrollmentYears, isStudentAccessExpired, studentAccessExpiresAt, studentAccountCleanupAt } from "../js/account-lifecycle.js";
 
 const cutoff = Date.parse("2027-06-30T17:00:00Z");
 assert.deepEqual(enrollmentYears(new Date("2026-11-02T00:00:00Z")), [2024, 2025, 2026]);
@@ -11,6 +11,12 @@ assert.equal(isStudentAccessExpired({ enrollment_year: 2024 }, cutoff), true);
 assert.equal(isStudentAccessExpired({ enrollment_year: 2025 }, cutoff), false);
 assert.equal(studentAccessExpiresAt({ enrollment_year: 2020 }), null, "Do not infer a legacy student's graduation date");
 assert.equal(isStudentAccessExpired({ status: "EXPIRED" }), true);
+assert.equal(studentAccountCleanupAt({ access_expires_at: "2026-11-04T23:24:01+07:00" }), Date.parse("2026-11-12T00:15:00+07:00"));
+assert.equal(studentAccountCleanupAt({ access_expires_at: "2026-11-04T00:15:00+07:00" }), Date.parse("2026-11-11T00:15:00+07:00"));
+assert.equal(studentAccountCleanupAt({ access_expires_at: "2026-11-04T00:15:00.001+07:00" }), Date.parse("2026-11-12T00:15:00+07:00"));
+assert.equal(studentAccountCleanupAt({ access_expires_at: "2028-02-25T23:00:00+07:00" }), Date.parse("2028-03-04T00:15:00+07:00"));
+assert.equal(studentAccountCleanupAt({ enrollment_year: 2020 }), null);
+assert.equal(studentAccountCleanupAt({ access_expires_at: "invalid" }), null);
 
 const authSource = (await readFile(new URL("../js/services/auth-service.js", import.meta.url), "utf8"))
   .replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.lifecycleClient;')

@@ -59,6 +59,10 @@ try {
   assert.equal((await signIn(payload.email, payload.password, 'STUDENT')).role, 'STUDENT');
   assert.doesNotMatch(service, /resetPasswordForEmail|signInWithOtp|resend\(/);
   assert.doesNotMatch(friendlyError({ code: 'email_not_confirmed' }), /tautan|kotak masuk/);
+  assert.equal(friendlyError({ code: 'ACCOUNT_NOT_REGISTERED' }), 'Akun tidak terdaftar.');
+  assert.equal(friendlyError({ code: 'user_not_found' }), 'Akun tidak terdaftar.');
+  assert.equal(friendlyError({ code: 'invalid_credentials' }), 'Akun tidak terdaftar atau password tidak sesuai.');
+  assert.equal(friendlyError({ message: 'Invalid login credentials' }), 'Akun tidak terdaftar atau password tidak sesuai.');
   console.log('Admin-only approval, email-free signup guard, and login checks passed.');
 } finally {
   globalThis.fetch = originalFetch;

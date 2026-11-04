@@ -123,6 +123,10 @@
 .student-row__identity h2 { overflow: hidden; margin: 0; font-size: .94rem; text-overflow: ellipsis; white-space: nowrap; }
 .student-row__identity p { overflow: hidden; margin: 4px 0 0; color: var(--ink-500); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .student-row__actions { display: flex; grid-column: 1 / -1; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.student-row__expiry { display: flex; grid-column: 1 / -1; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid #f0dfb5; border-radius: 10px; color: #785818; background: #fff9eb; font-size: var(--admin-font-small); line-height: 1.5; }
+.student-row__expiry > svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 2px; }
+.student-row__expiry p { margin: 0; }
+.student-row__expiry small { display: block; margin-top: 2px; font-size: inherit; }
 .student-detail { width: min(100%,640px); max-height: calc(100dvh - 40px); padding: 20px; }
 .student-detail .modal__header { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .student-detail .modal__header p { margin: 3px 0 0; }

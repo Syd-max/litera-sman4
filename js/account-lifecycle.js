@@ -17,3 +17,13 @@ export function isStudentAccessExpired(profile, now = Date.now()) {
   const expiry = studentAccessExpiresAt(profile);
   return profile?.status === "EXPIRED" || (expiry !== null && expiry <= now);
 }
+
+export function studentAccountCleanupAt(profile) {
+  const expiry = studentAccessExpiresAt(profile);
+  if (expiry === null || !Number.isFinite(expiry)) return null;
+  const eligibleAt = expiry + 7 * 86400000;
+  const date = new Date(eligibleAt);
+  // Matches litera-cleanup-alumni: 17:15 UTC is 00:15 WIB the next day.
+  const scheduledAt = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 17, 15);
+  return scheduledAt < eligibleAt ? scheduledAt + 86400000 : scheduledAt;
+}

@@ -71,7 +71,8 @@ export function friendlyError(error) {
   if (code === "email_confirmation_enabled") return error.message;
   if (code === "email_not_confirmed" || message.includes("email not confirmed")) return "Akun belum selesai diaktifkan. Hubungi pustakawan untuk memeriksa persetujuan akun melalui dashboard.";
   if (message.includes("email logins are disabled") || message.includes("email provider is disabled") || message.includes("unsupported provider")) return "Login email Supabase sedang nonaktif. Aktifkan provider Email di Authentication > Providers > Email.";
-  if (message.includes("invalid login credentials")) return "Email atau password tidak sesuai.";
+  if (["ACCOUNT_NOT_REGISTERED", "user_not_found"].includes(error?.code)) return "Akun tidak terdaftar.";
+  if (code === "invalid_credentials" || message.includes("invalid login credentials")) return "Akun tidak terdaftar atau password tidak sesuai.";
   if (message.includes("user already registered") || message.includes("already been registered")) return "Email sudah digunakan. Jika sebelumnya sudah mendaftar, tunggu validasi pustakawan.";
   if (message.includes("database error saving new user") || message.includes("unexpected_failure")) return "Data pendaftaran gagal disimpan. Jalankan schema.sql terbaru di Supabase, lalu coba lagi.";
   if (code === "over_email_send_rate_limit" || message.includes("email rate limit")) return "Pendaftaran belum dapat diproses. Jika sudah pernah mendaftar, jangan daftar ulang; hubungi pustakawan untuk memeriksa akun.";

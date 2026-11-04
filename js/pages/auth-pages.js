@@ -52,6 +52,7 @@ function setupFieldIcons() {
 async function initializeLogin(expectedRole) {
   document.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    document.querySelector(".toast-region")?.replaceChildren();
     const button = event.submitter;
     setBusy(button, true, "Memeriksa...");
     try {
@@ -177,11 +178,16 @@ setupFieldIcons();
 setupPasswordToggles();
 
 if (page === "student-login") initializeLogin("STUDENT");
-if (page === "student-login" && new URLSearchParams(window.location.search).get("account") === "suspended") {
-  showToast("Akun Anda ditangguhkan. Hubungi pustakawan untuk pemulihan akses.", "danger");
-}
-if (page === "student-login" && new URLSearchParams(window.location.search).get("account") === "expired") {
-  showToast("Masa aktif akun tiga tahun ajaran telah berakhir. Hubungi pustakawan jika data tahun masuk tidak sesuai.", "danger");
+if (page === "student-login") {
+  const query = new URLSearchParams(window.location.search);
+  const account = query.get("account");
+  if (account === "suspended") showToast("Akun Anda ditangguhkan. Hubungi pustakawan untuk pemulihan akses.", "danger");
+  if (account === "expired") showToast("Masa aktif akun tiga tahun ajaran telah berakhir. Hubungi pustakawan jika data tahun masuk tidak sesuai.", "danger");
+  if (["suspended", "expired"].includes(account)) {
+    query.delete("account");
+    const search = query.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`);
+  }
 }
 if (page === "admin-login") initializeLogin("LIBRARIAN");
 if (page === "register") initializeRegister();

@@ -87,7 +87,7 @@ export async function signIn(email, password, expectedRole) {
   const identity = await resolveRole(client, data.user.id);
   if (!identity.role) {
     await client.auth.signOut({ scope: "local" });
-    throw new Error("Profil akun belum tersedia.");
+    throw Object.assign(new Error("Akun tidak terdaftar."), { code: "ACCOUNT_NOT_REGISTERED" });
   }
   if (identity.role !== expectedRole) {
     await client.auth.signOut({ scope: "local" });

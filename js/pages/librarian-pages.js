@@ -10,7 +10,7 @@ import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-lib
 import { dashboardMetrics, deleteRejectedStudent, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
-import { isStudentAccessExpired, studentAccessExpiresAt } from "../account-lifecycle.js";
+import { isStudentAccessExpired, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
 import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
@@ -148,7 +148,16 @@ async function renderStudents() {
         ${student.status === "REJECTED" ? `<button class="button button--small button--danger" type="button" data-student-delete="${student.id}">${icon("trash")} Hapus</button>` : ""}
         ${student.status === "PENDING" ? `<button class="button button--small button--primary" type="button" data-student-action="ACTIVE" data-student="${student.id}">${icon("check")} Setujui</button><button class="button button--small button--danger" type="button" data-student-action="REJECTED" data-student="${student.id}">${icon("close")} Tolak</button>` : ""}
       </div>
+      ${student.status === "EXPIRED" ? deletionNotice(student) : ""}
     </article>`).join("")}</div>`;
+  }
+
+  function deletionNotice(student) {
+    const scheduledAt = studentAccountCleanupAt(student);
+    if (scheduledAt === null) return `<div class="student-row__expiry" role="note">${icon("clock")}<span>Jadwal penghapusan belum tersedia.</span></div>`;
+    const date = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(scheduledAt));
+    const overdue = scheduledAt <= Date.now();
+    return `<div class="student-row__expiry" role="note">${icon("clock")}<div><p>${overdue ? "Jadwal penghapusan:" : "Dijadwalkan dihapus pada"} <strong><time datetime="${new Date(scheduledAt).toISOString()}">${date} WIB</time></strong>.</p><small>${overdue ? "Menunggu proses pembersihan atau penyelesaian pinjaman." : "Jika tidak ada pinjaman berjalan."}</small></div></div>`;
   }
 
   function openStudentDetail(student) {
