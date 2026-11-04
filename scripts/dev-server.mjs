@@ -5,8 +5,9 @@ import resetStudentPassword from "../api/student-password.js";
 import registrationSelfie from "../api/registration-selfie.js";
 import studentSelfie from "../api/student-selfie.js";
 import cleanupSelfies from "../api/cleanup-selfies.js";
+import deleteStudent from "../api/student-delete.js";
 
-const apiRoutes = new Map([["/api/student-password", resetStudentPassword], ["/api/registration-selfie", registrationSelfie], ["/api/student-selfie", studentSelfie], ["/api/cleanup-selfies", cleanupSelfies]]);
+const apiRoutes = new Map([["/api/student-password", resetStudentPassword], ["/api/student-delete", deleteStudent], ["/api/registration-selfie", registrationSelfie], ["/api/student-selfie", studentSelfie], ["/api/cleanup-selfies", cleanupSelfies]]);
 
 try { process.loadEnvFile(); } catch (error) { if (error.code !== "ENOENT") throw error; }
 

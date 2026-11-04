@@ -61,7 +61,7 @@ export function debounce(callback, delay = 300) {
 export function friendlyError(error) {
   if (["SELFIE_ERROR", "SELFIE_UPLOAD_RETRY"].includes(error?.code)) return error.message;
   if (String(error?.message || "").includes("registration selfie required")) return "Selfie pendaftaran belum tersedia atau sudah melewati 7 hari. Periksa bukti siswa sebelum menyetujui.";
-  if (error?.code === "STUDENT_PASSWORD_RESET") return error.message;
+  if (["STUDENT_PASSWORD_RESET", "STUDENT_DELETE"].includes(error?.code)) return error.message;
   if (String(error?.message || "").includes("set_student_suspension")) return "Fitur penangguhan belum aktif. Jalankan student-account-management.sql di Supabase terlebih dahulu.";
   if (String(error?.message || "").includes("invalid suspension transition")) return "Status akun sudah berubah atau akun ini belum dapat ditangguhkan. Muat ulang data siswa.";
   if (String(error?.message || "").includes("student access expired")) return "Masa aktif akun siswa telah berakhir. Akun alumni tidak dapat diaktifkan kembali melalui tombol ini.";

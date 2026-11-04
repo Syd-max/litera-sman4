@@ -7,7 +7,7 @@ import { archiveBook, bookCoverStoragePath, getBook, isBookOutOfStock, listArchi
 import { requireRole, signOut } from "../services/auth-service.js";
 import { approveLoan, confirmReturn, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
-import { dashboardMetrics, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
+import { dashboardMetrics, deleteRejectedStudent, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
 import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
@@ -132,6 +132,7 @@ async function renderStudents() {
       <span class="badge ${statusBadgeClass(student.status)}">${statusLabel(student.status)}</span>
       <div class="student-row__actions">
         <button class="button button--small button--secondary" type="button" data-student-detail="${student.id}">Detail</button>
+        ${student.status === "REJECTED" ? `<button class="button button--small button--danger" type="button" data-student-delete="${student.id}">${icon("trash")} Hapus</button>` : ""}
         ${student.status === "PENDING" ? `<button class="button button--small button--primary" type="button" data-student-action="ACTIVE" data-student="${student.id}">${icon("check")} Setujui</button><button class="button button--small button--danger" type="button" data-student-action="REJECTED" data-student="${student.id}">${icon("close")} Tolak</button>` : ""}
       </div>
     </article>`).join("")}</div>`;
@@ -259,6 +260,20 @@ async function renderStudents() {
   document.getElementById("student-search").addEventListener("input", draw);
   document.getElementById("student-status").addEventListener("change", draw);
   host.addEventListener("click", async (event) => {
+    const deleteButton = event.target.closest("[data-student-delete]");
+    if (deleteButton) {
+      const student = students.find(item => item.id === deleteButton.dataset.studentDelete);
+      if (!student || student.status !== "REJECTED") return;
+      if (!await confirmDialog({ title: "Hapus akun siswa?", message: `Akun ${student.full_name}, data pendaftaran, foto, dan riwayatnya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, confirmLabel: "Hapus Permanen", danger: true })) return;
+      setBusy(deleteButton, true);
+      try {
+        const result = await deleteRejectedStudent(student.id);
+        students = students.filter(item => item.id !== student.id);
+        drawOverview(); draw();
+        showToast(result.photoCleanupPending ? "Akun siswa dihapus. Pembersihan foto akan dicoba otomatis." : "Akun dan data siswa berhasil dihapus permanen.", result.photoCleanupPending ? "warning" : "success");
+      } catch (error) { showToast(friendlyError(error), "danger"); setBusy(deleteButton, false); }
+      return;
+    }
     const detailButton = event.target.closest("[data-student-detail]");
     if (detailButton) {
       const student = students.find((item) => item.id === detailButton.dataset.studentDetail);

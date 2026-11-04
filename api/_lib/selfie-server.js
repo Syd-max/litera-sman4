@@ -35,7 +35,7 @@ export async function verifiedUser(request, config, librarian = false) {
   if (!roleResult.ok) throw Object.assign(new Error("Izin akun belum dapat diperiksa."), { status: 502 });
   const roles = await roleResult.json();
   const isLibrarian = Array.isArray(roles) && roles.some(role => role.id === user.id);
-  if (librarian && !isLibrarian) throw Object.assign(new Error("Foto hanya dapat dilihat oleh pustakawan."), { status: 403 });
+  if (librarian && !isLibrarian) throw Object.assign(new Error("Hanya pustakawan yang dapat mengakses fitur ini."), { status: 403 });
   if (!librarian && isLibrarian) throw Object.assign(new Error("Selfie pendaftaran hanya untuk akun siswa."), { status: 403 });
   return { user, headers };
 }

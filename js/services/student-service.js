@@ -69,6 +69,20 @@ export async function resetStudentPassword(studentId, password) {
   if (!response.ok) throw Object.assign(new Error(result?.error || "Reset password belum tersedia. Pastikan fungsi server sudah diterapkan."), { code: "STUDENT_PASSWORD_RESET" });
 }
 
+export async function deleteRejectedStudent(studentId) {
+  const client = await getSupabase();
+  const { data: { session }, error } = await client.auth.getSession();
+  if (error) throw error;
+  if (!session?.access_token) throw new Error("Sesi pustakawan tidak tersedia. Silakan login kembali.");
+  const response = await fetch("/api/student-delete", {
+    method: "DELETE", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ studentId })
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw Object.assign(new Error(result?.error || "Penghapusan akun belum tersedia. Coba lagi nanti."), { code: "STUDENT_DELETE" });
+  return result;
+}
+
 export const dashboardWindowStart = (now = new Date()) => new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
 export async function dashboardMetrics() {
