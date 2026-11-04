@@ -14,7 +14,7 @@ async function syncStudentRegistrations(client) {
 export async function listPendingStudents() {
   const client = await getSupabase();
   await syncStudentRegistrations(client);
-  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").eq("status", "PENDING").order("created_at", { ascending: false });
+  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at,access_expires_at").eq("status", "PENDING").order("created_at", { ascending: false });
   if (error) throw error;
   return (data || []).filter(student => !isStudentAccessExpired(student));
 }
@@ -22,7 +22,9 @@ export async function listPendingStudents() {
 export async function listStudents() {
   const client = await getSupabase();
   await syncStudentRegistrations(client);
-  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at").order("created_at", { ascending: false });
+  const { error: refreshError } = await client.rpc("refresh_student_access_status");
+  if (refreshError && !["42883", "PGRST202"].includes(refreshError.code)) throw refreshError;
+  const { data, error } = await client.from("student_profiles").select("id,full_name,class_name,enrollment_year,major,email,status,created_at,access_expires_at").order("created_at", { ascending: false });
   if (error) throw error;
   return (data || []).map(student => isStudentAccessExpired(student) ? { ...student, status: "EXPIRED" } : student);
 }

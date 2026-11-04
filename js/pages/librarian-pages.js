@@ -10,6 +10,7 @@ import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-lib
 import { dashboardMetrics, deleteRejectedStudent, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
+import { isStudentAccessExpired, studentAccessExpiresAt } from "../account-lifecycle.js";
 import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
@@ -112,6 +113,18 @@ async function renderStudents() {
   const host = document.getElementById("student-results");
   let students = [];
   let loading = false;
+  let expiryTimer;
+
+  function scheduleExpiry() {
+    clearTimeout(expiryTimer);
+    const next = students.map(studentAccessExpiresAt).filter(expiry => expiry !== null && expiry > Date.now());
+    if (!next.length) return;
+    expiryTimer = setTimeout(() => {
+      students = students.map(student => isStudentAccessExpired(student) ? { ...student, status: "EXPIRED" } : student);
+      drawOverview(); draw();
+      void load(false);
+    }, Math.min(Math.max(1, Math.min(...next) - Date.now()), 2147483647));
+  }
 
   function drawOverview() {
     document.getElementById("student-stat-pending").textContent = students.filter((student) => student.status === "PENDING").length.toLocaleString("id-ID");
@@ -254,7 +267,7 @@ async function renderStudents() {
     if (showLoading) host.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try { students = await listStudents(); drawOverview(); draw(); }
     catch (error) { renderError(host, friendlyError(error)); }
-    finally { loading = false; }
+    finally { loading = false; scheduleExpiry(); }
   }
 
   document.getElementById("student-search").addEventListener("input", draw);
@@ -293,9 +306,18 @@ async function renderStudents() {
 
   let stopRealtime = () => {};
   subscribeToStudentRegistrations(() => load(false)).then((stop) => { stopRealtime = stop; }).catch(() => {});
-  window.addEventListener("pagehide", () => {
+  const refreshVisible = () => { if (document.visibilityState === "visible") void load(false); };
+  window.addEventListener("focus", refreshVisible);
+  window.addEventListener("pageshow", refreshVisible);
+  document.addEventListener("visibilitychange", refreshVisible);
+  window.addEventListener("pagehide", (event) => {
+    if (event.persisted) return;
+    clearTimeout(expiryTimer);
     stopRealtime();
-  }, { once: true });
+    window.removeEventListener("focus", refreshVisible);
+    window.removeEventListener("pageshow", refreshVisible);
+    document.removeEventListener("visibilitychange", refreshVisible);
+  });
 }
 
 function bookFormMarkup(book = {}, categories = [], manualUpload = false) {

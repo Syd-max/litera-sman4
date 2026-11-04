@@ -72,4 +72,49 @@ assert.match(sql, /revoke all on function private\.cleanup_expired_students\(\) 
 assert.match(sql, /cron\.schedule\('litera-cleanup-alumni', '15 17 \* \* \*'/);
 assert.doesNotMatch(sql, /update public\.books|delete from public\.books/);
 assert.doesNotMatch(sql, /^select private\.cleanup_expired_students\(\)/m, "Migration must not immediately invoke destructive cleanup");
-console.log("Enrollment dropdown, Jakarta expiry boundary, automatic logout, and alumni cleanup safety checks passed.");
+
+const retention = await readFile(new URL("../supabase/student-expiry-retention.sql", import.meta.url), "utf8");
+const retentionBody = retention.slice(retention.indexOf("create or replace function"), retention.indexOf("\ncommit;")).trim();
+assert.ok(schema.includes(retentionBody), "Fresh schema must apply the same retention policy last");
+assert.ok(schema.lastIndexOf("create or replace function private.cleanup_expired_students()") > schema.indexOf(body));
+assert.match(retention, /students\.status = 'EXPIRED' and students\.access_expires_at <= now\(\) - interval '7 days'/);
+assert.match(retention, /cron\.schedule\('litera-expire-students', '\* \* \* \* \*'/);
+assert.match(retention, /if not private\.is_librarian\(\) then raise exception/);
+assert.match(retention, /revoke all on function private\.mark_expired_students\(\) from public, anon, authenticated, service_role/);
+assert.match(retention, /and status in \('PENDING', 'APPROVED', 'BORROWED', 'RETURN_REQUESTED'\)/);
+assert.match(retention, /for update of students skip locked/);
+assert.match(retention, /exception when foreign_key_violation/);
+assert.match(retention, /not exists \(select 1 from public\.librarian_profiles where id = students\.id\)/);
+assert.doesNotMatch(retention, /^select private\.cleanup_expired_students\(\)/m, "Applying retention must not run account deletion");
+assert.doesNotMatch(retention, /set access_expires_at|update public\.books|delete from public\.books|disable trigger/);
+
+const serviceSource = (await readFile(new URL("../js/services/student-service.js", import.meta.url), "utf8"))
+  .replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.retentionClient;')
+  .replace('"../account-lifecycle.js"', JSON.stringify(new URL("../js/account-lifecycle.js", import.meta.url).href));
+const calls = [];
+let refreshError = null;
+const rows = [
+  { id: "trial", enrollment_year: 2023, status: "ACTIVE", access_expires_at: new Date(Date.now() - 1000).toISOString() },
+  { id: "retained", enrollment_year: 2023, status: "EXPIRED", access_expires_at: new Date(Date.now() - 6 * 86400000).toISOString() },
+  { id: "active", enrollment_year: 2024, status: "ACTIVE", access_expires_at: new Date(Date.now() + 86400000).toISOString() },
+  { id: "legacy", enrollment_year: 2020, status: "ACTIVE", access_expires_at: null }
+];
+globalThis.retentionClient = {
+  rpc: async name => { calls.push(name); return { data: 0, error: name === "refresh_student_access_status" ? refreshError : null }; },
+  from: () => ({ select: columns => {
+    assert.ok(columns.split(",").includes("access_expires_at"), "Read the actual deadline, including the 2023 test override");
+    return { order: async () => ({ data: rows, error: null }) };
+  } })
+};
+try {
+  const { listStudents } = await import(`data:text/javascript;base64,${Buffer.from(serviceSource).toString("base64")}`);
+  const students = await listStudents();
+  assert.deepEqual(students.map(student => student.status), ["EXPIRED", "EXPIRED", "ACTIVE", "ACTIVE"]);
+  assert.equal(students.length, rows.length, "Expired accounts stay available in admin filters during retention");
+  assert.ok(calls.includes("refresh_student_access_status"));
+  refreshError = { code: "PGRST202" };
+  assert.equal((await listStudents())[0].status, "EXPIRED", "The UI must remain compatible before the SQL migration is applied");
+  refreshError = { code: "42501" };
+  await assert.rejects(listStudents(), error => error.code === "42501");
+} finally { delete globalThis.retentionClient; }
+console.log("Enrollment, automatic logout, admin expiry filters, seven-day retention, and cleanup safety checks passed.");
