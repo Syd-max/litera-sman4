@@ -1,4 +1,5 @@
 const paths = {
+  camera: '<path d="M8 5 9.5 3h5L16 5h4a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><circle cx="12" cy="12.5" r="4"/>',
   home: '<path d="m3.5 10.8 8.5-7 8.5 7"/><path d="M5.5 9.8v9.7h13V9.8"/><path d="M9.2 19.5v-5.7h5.6v5.7"/>',
   book: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 16h14M8 21h8"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',

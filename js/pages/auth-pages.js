@@ -4,6 +4,7 @@ import { friendlyError } from "../utils.js";
 import { getCurrentIdentity, registerStudent, signIn, updatePassword } from "../services/auth-service.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { enrollmentYears, isStudentAccessExpired, studentAccessExpiresAt } from "../account-lifecycle.js";
+import { initializeSelfieCamera } from "../components/selfie-camera.js";
 
 const page = document.body.dataset.page;
 
@@ -75,6 +76,8 @@ function validateRegistration(data) {
 }
 
 function initializeRegister() {
+  const camera = initializeSelfieCamera(document.getElementById("selfie-time"));
+  let pendingPayload = null;
   const yearSelect = document.getElementById("enrollment-year");
   yearSelect.insertAdjacentHTML("beforeend", enrollmentYears().map(year => `<option value="${year}" ${isStudentAccessExpired({ enrollment_year: year }) ? "disabled" : ""}>${year}</option>`).join(""));
   initializeSelectMenus();
@@ -89,6 +92,7 @@ function initializeRegister() {
     showToast("Pilih tahun masuk terlebih dahulu.", "danger");
   });
   const errorNotice = document.querySelector("[data-register-error]");
+  document.getElementById("selfie-time").addEventListener("selfie-ready", () => { errorNotice.hidden = true; errorNotice.textContent = ""; });
   const showRegistrationError = (message) => {
     errorNotice.textContent = message;
     errorNotice.hidden = false;
@@ -97,27 +101,48 @@ function initializeRegister() {
 
   document.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const registrationForm = event.currentTarget;
     errorNotice.hidden = true;
     errorNotice.textContent = "";
     const button = event.submitter;
     const form = new FormData(event.currentTarget);
-    const payload = Object.fromEntries(form.entries());
-    const validationMessage = validateRegistration(payload);
+    const payload = pendingPayload || Object.fromEntries(form.entries());
+    const validationMessage = pendingPayload ? "" : validateRegistration(payload);
     if (validationMessage) {
       showRegistrationError(validationMessage);
       return;
     }
+    const selfie = camera.photo();
+    if (!selfie) { showRegistrationError("Ambil selfie melalui kamera sebelum mendaftar."); return; }
     setBusy(button, true, "Mendaftarkan...");
     try {
-      const { error } = await registerStudent(payload);
+      const { error } = await registerStudent({ ...payload, selfie });
       if (error) throw error;
       window.location.assign("./registration-success.html");
     } catch (error) {
+      if (error.code === "SELFIE_UPLOAD_RETRY") {
+        pendingPayload = payload;
+        registrationForm.querySelectorAll("[name]").forEach(field => { field.disabled = true; });
+      }
       showRegistrationError(friendlyError(error));
     } finally {
       setBusy(button, false);
+      if (pendingPayload) button.textContent = "Coba Simpan Selfie Lagi";
     }
   });
+  getCurrentIdentity().then(identity => {
+    if (identity?.role !== "STUDENT" || identity.profile.status !== "PENDING") return;
+    const profile = identity.profile;
+    if (!enrollmentYears().includes(Number(profile.enrollment_year))) return;
+    pendingPayload = { fullName: profile.full_name, className: profile.class_name, enrollmentYear: String(profile.enrollment_year), major: profile.major, email: profile.email, password: "" };
+    const form = document.querySelector("form");
+    for (const [name, value] of Object.entries(pendingPayload)) {
+      const field = form.elements[name];
+      if (field) { field.value = value; field.disabled = true; }
+    }
+    yearSelect.dispatchEvent(new Event("change"));
+    form.querySelector('[type="submit"]').textContent = "Lengkapi Selfie Pendaftaran";
+  }).catch(() => {});
 }
 
 function initializeUpdatePassword() {

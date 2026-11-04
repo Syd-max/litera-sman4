@@ -1,5 +1,8 @@
 import { getSupabase } from "./supabase.js";
 import { enrollmentYears, isStudentAccessExpired, studentAccessExpiresAt } from "../account-lifecycle.js";
+import { uploadRegistrationSelfie } from "./selfie-service.js";
+
+let pendingRegistration;
 
 async function resolveRole(client, userId) {
   const [{ data: student, error: studentError }, { data: librarian, error: librarianError }] = await Promise.all([
@@ -13,7 +16,8 @@ async function resolveRole(client, userId) {
   return { role: null, profile: null };
 }
 
-export async function registerStudent({ fullName, className, enrollmentYear, major, email, password }) {
+export async function registerStudent({ fullName, className, enrollmentYear, major, email, password, selfie }) {
+  if (!selfie?.blob?.size || selfie.blob.type !== "image/webp" || !selfie.capturedAt) throw Object.assign(new Error("Ambil selfie melalui kamera sebelum mendaftar."), { code: "SELFIE_ERROR" });
   if (!enrollmentYears().includes(Number(enrollmentYear))) throw new Error("Pilih tahun masuk mulai 2024 sampai tahun ini.");
   if (isStudentAccessExpired({ enrollment_year: enrollmentYear })) throw Object.assign(new Error("Masa aktif angkatan tersebut sudah berakhir."), { code: "EXPIRED" });
   // Refuse signup before it can send mail if the hosted Auth settings drift.
@@ -27,7 +31,16 @@ export async function registerStudent({ fullName, className, enrollmentYear, maj
     throw Object.assign(new Error("Pendaftaran sementara belum tersedia. Hubungi pustakawan untuk mengaktifkan pendaftaran tanpa konfirmasi email."), { code: "EMAIL_CONFIRMATION_ENABLED" });
   }
   const client = await getSupabase();
-  const result = await client.auth.signUp({
+  let result = pendingRegistration?.email === email ? pendingRegistration.result : null;
+  if (!result) {
+    const { data: { session } } = await client.auth.getSession();
+    if (session?.user?.email?.toLowerCase() === email.toLowerCase()) {
+      const identity = await resolveRole(client, session.user.id);
+      if (identity.role === "STUDENT" && identity.profile.status === "PENDING") result = { data: { user: session.user, session }, error: null };
+      else return { data: { user: null, session: null }, error: new Error("User already registered") };
+    }
+  }
+  if (!result) result = await client.auth.signUp({
     email,
     password,
     options: {
@@ -36,16 +49,31 @@ export async function registerStudent({ fullName, className, enrollmentYear, maj
         full_name: fullName,
         class_name: className,
         enrollment_year: Number(enrollmentYear),
-        major
+        major,
+        selfie_required: true
       }
     }
   });
 
-  if (!result.error && Array.isArray(result.data.user?.identities) && result.data.user.identities.length === 0) {
-    return { ...result, error: new Error("User already registered") };
+  const duplicate = result.error?.code === "user_already_exists" || /already registered/i.test(result.error?.message || "")
+    || (!result.error && Array.isArray(result.data.user?.identities) && result.data.user.identities.length === 0);
+  if (duplicate) {
+    const duplicateError = result.error || new Error("User already registered");
+    const login = await client.auth.signInWithPassword({ email, password });
+    if (login.error) return { ...result, error: duplicateError };
+    const identity = await resolveRole(client, login.data.user.id);
+    if (identity.role !== "STUDENT" || identity.profile.status !== "PENDING") {
+      await client.auth.signOut({ scope: "local" });
+      return { ...result, error: duplicateError };
+    }
+    result = login;
   }
 
   if (!result.error && result.data.session) {
+    pendingRegistration = { email, result };
+    try { await uploadRegistrationSelfie(selfie.blob, selfie.capturedAt); }
+    catch (error) { throw Object.assign(new Error(`Akun sudah dibuat, tetapi selfie belum tersimpan. ${error.message}`), { code: "SELFIE_UPLOAD_RETRY" }); }
+    pendingRegistration = null;
     await client.auth.signOut({ scope: "local" });
   }
 

@@ -9,6 +9,7 @@ import { approveLoan, confirmReturn, listAllLoans, markBorrowed, rejectLoan, rev
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
 import { dashboardMetrics, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
+import { getStudentSelfie } from "../services/selfie-service.js";
 import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
@@ -153,11 +154,13 @@ async function renderStudents() {
         <div><dt>Tahun masuk</dt><dd>${student.enrollment_year}</dd></div>
         <div><dt>Tanggal daftar</dt><dd>${formatDate(student.created_at)}</dd></div>
         <div><dt>Status</dt><dd><span class="badge ${statusBadgeClass(student.status)}">${statusLabel(student.status)}</span></dd></div>
+        <div class="student-selfie-row"><dt>Selfie Time</dt><dd><button class="button button--small button--secondary" type="button" data-selfie-toggle aria-expanded="false" aria-controls="student-selfie-view">${icon("camera")} Lihat Selfie</button></dd></div>
       </dl>
       <div class="student-detail__actions">
         ${["ACTIVE", "SUSPENDED"].includes(student.status) ? `<button class="button ${suspended ? "button--primary" : "button--danger"}" type="button" data-suspension>${icon(suspended ? "checkCircle" : "lock")} ${suspended ? "Pulihkan Akun" : "Tangguhkan Akun"}</button>` : ""}
         <button class="button button--secondary" type="button" data-password-toggle aria-expanded="false" aria-controls="student-password-form">${icon("lock")} Reset Password</button>
       </div>
+      <section id="student-selfie-view" class="student-selfie" hidden aria-label="Bukti selfie pendaftaran"></section>
       <form id="student-password-form" class="student-password-form stack" hidden>
         <div><h3>Password baru</h3><p>Password langsung diganti tanpa email. Sampaikan password baru kepada siswa secara aman.</p></div>
         <div class="field"><label for="student-new-password">Password baru</label><input id="student-new-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required aria-describedby="student-password-hint"><small id="student-password-hint">8–72 karakter, dengan huruf besar, huruf kecil, dan angka.</small></div>
@@ -181,7 +184,26 @@ async function renderStudents() {
     };
     const passwordToggle = modal.querySelector("[data-password-toggle]");
     const passwordForm = modal.querySelector("form");
+    const selfieHost = modal.querySelector(".student-selfie");
+    const selfieToggle = modal.querySelector("[data-selfie-toggle]");
+    selfieToggle.addEventListener("click", async () => {
+      selfieHost.hidden = false; passwordForm.hidden = true;
+      passwordToggle.setAttribute("aria-expanded", "false");
+      selfieToggle.setAttribute("aria-expanded", "true");
+      selfieHost.innerHTML = '<p>Memuat selfie...</p>';
+      try {
+        const { photo } = await getStudentSelfie(student.id);
+        if (!modal.isConnected) return;
+        if (photo) {
+          const format = value => new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(value));
+          selfieHost.innerHTML = `<h3>Selfie Time</h3><img src="${escapeHtml(photo.url)}" alt="Bukti selfie pendaftaran siswa"><dl><div><dt>Batas simpan</dt><dd>${escapeHtml(format(photo.expiresAt))} WIB</dd></div></dl>`;
+          selfieHost.querySelector("img").addEventListener("error", event => { event.target.hidden = true; selfieHost.querySelector("h3").textContent = "Foto belum dapat dibuka. Tutup dan buka kembali selfie."; });
+        } else selfieHost.innerHTML = '<p>Selfie belum tersedia atau sudah dihapus setelah 7 hari.</p>';
+      } catch (error) { selfieHost.replaceChildren(Object.assign(document.createElement("p"), { textContent: friendlyError(error) })); }
+      if (!modal.isConnected) return;
+    });
     passwordToggle.addEventListener("click", () => {
+      selfieHost.hidden = true; selfieHost.replaceChildren(); selfieToggle.setAttribute("aria-expanded", "false");
       passwordForm.hidden = !passwordForm.hidden;
       passwordToggle.setAttribute("aria-expanded", String(!passwordForm.hidden));
       if (passwordForm.hidden) passwordForm.reset();

@@ -14,7 +14,8 @@ assert.equal(isStudentAccessExpired({ status: "EXPIRED" }), true);
 
 const authSource = (await readFile(new URL("../js/services/auth-service.js", import.meta.url), "utf8"))
   .replace('import { getSupabase } from "./supabase.js";', 'const getSupabase = async () => globalThis.lifecycleClient;')
-  .replace('"../account-lifecycle.js"', JSON.stringify(new URL("../js/account-lifecycle.js", import.meta.url).href));
+  .replace('"../account-lifecycle.js"', JSON.stringify(new URL("../js/account-lifecycle.js", import.meta.url).href))
+  .replace('"./selfie-service.js"', JSON.stringify(new URL("../js/services/selfie-service.js", import.meta.url).href));
 const { signIn, requireRole, watchStudentAccess } = await import(`data:text/javascript;base64,${Buffer.from(authSource).toString("base64")}`);
 const originalNow = Date.now, originalSetTimeout = globalThis.setTimeout, originalClearTimeout = globalThis.clearTimeout;
 let now = cutoff - 1000, timer, timerDelay, signedOut = 0, blanked = 0;

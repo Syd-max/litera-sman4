@@ -2,6 +2,11 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import resetStudentPassword from "../api/student-password.js";
+import registrationSelfie from "../api/registration-selfie.js";
+import studentSelfie from "../api/student-selfie.js";
+import cleanupSelfies from "../api/cleanup-selfies.js";
+
+const apiRoutes = new Map([["/api/student-password", resetStudentPassword], ["/api/registration-selfie", registrationSelfie], ["/api/student-selfie", studentSelfie], ["/api/cleanup-selfies", cleanupSelfies]]);
 
 try { process.loadEnvFile(); } catch (error) { if (error.code !== "ENOENT") throw error; }
 
@@ -48,16 +53,17 @@ const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
     const pathname = decodeURIComponent(url.pathname).replace(/\\/g, "/");
-    if (pathname === "/api/student-password") {
+    if (apiRoutes.has(pathname)) {
       const chunks = [];
       let size = 0;
       for await (const chunk of request) {
         size += chunk.length;
-        if (size > 4096) { send(response, 413, '{"error":"Data terlalu besar."}', "application/json"); return; }
+        const maxBody = pathname === "/api/registration-selfie" ? 300 * 1024 : 4096;
+        if (size > maxBody) { send(response, 413, '{"error":"Data terlalu besar."}', "application/json"); return; }
         chunks.push(chunk);
       }
       request.body = Buffer.concat(chunks).toString("utf8");
-      await resetStudentPassword(request, response);
+      await apiRoutes.get(pathname)(request, response);
       return;
     }
     if (pathname.toLowerCase().startsWith("/api/")) { send(response, 404, "Not found"); return; }

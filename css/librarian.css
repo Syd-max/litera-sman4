@@ -136,8 +136,25 @@
 .student-password-form p, .student-password-form small { color: var(--ink-500); font-size: .8rem; }
 .student-password-form p { margin-bottom: 0; }
 .student-password-form .field input { background: #fff; }
+.student-selfie-row .button { min-height: 34px; padding: 5px 9px; font-size: .78rem; }
+.student-selfie { min-width: 0; margin-bottom: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); }
+.student-selfie h3 { margin: 0 0 10px; font-size: .95rem; }
+.student-selfie > img { width: 100%; max-height: 260px; object-fit: contain; border-radius: 10px; background: #102b68; }
+.student-selfie dl { display: grid; gap: 8px; margin: 12px 0; }
+.student-selfie dl > div { display: grid; grid-template-columns: 95px minmax(0,1fr); align-items: start; gap: 8px; }
+.student-selfie dt { color: var(--ink-700); font-size: .7rem; }
+.student-selfie dd { margin: 0; overflow-wrap: anywhere; font-size: .75rem; }
+.student-selfie > p { font-size: .85rem; }
+.student-detail:has(.student-password-form:not([hidden]), .student-selfie:not([hidden])) .student-selfie-row { display: none; }
 
 @media (min-width: 680px) {
+  .student-detail:has(.student-selfie:not([hidden])) { display: grid; width: min(100%,920px); grid-template-columns: minmax(0,1fr) minmax(0,1fr); column-gap: 16px; }
+  .student-detail:has(.student-selfie:not([hidden])) .modal__header { grid-column: 1 / -1; }
+  .student-detail:has(.student-selfie:not([hidden])) .student-detail__list { grid-column: 1; grid-row: 2; align-self: start; }
+  .student-detail:has(.student-selfie:not([hidden])) .student-detail__list div { grid-template-columns: 104px minmax(0,1fr); }
+  .student-detail:has(.student-selfie:not([hidden])) .student-detail__actions { grid-column: 1; grid-row: 3; align-self: end; grid-template-columns: minmax(0,1fr); }
+  .student-detail:has(.student-selfie:not([hidden])) .student-selfie { grid-column: 2; grid-row: 2 / span 2; align-self: start; }
+  .student-detail:has(.student-selfie:not([hidden])) > [data-close] { grid-column: 1 / -1; }
   .student-detail:has(.student-password-form:not([hidden])) { display: grid; width: min(100%,920px); grid-template-columns: minmax(0,1fr) minmax(0,1fr); column-gap: 16px; }
   .student-detail:has(.student-password-form:not([hidden])) .modal__header { grid-column: 1 / -1; }
   .student-detail:has(.student-password-form:not([hidden])) .student-detail__list { grid-column: 1; grid-row: 2; align-self: start; }
@@ -148,12 +165,15 @@
 }
 
 @media (min-width: 680px) and (max-height: 640px) {
+  .student-selfie > img { max-height: 160px; }
   .student-detail { padding: 16px; }
   .student-detail__list div { min-height: 38px; padding-block: 6px; }
   .student-detail__list dt { margin-block: -6px; padding-block: 6px; }
 }
 
 @media (max-width: 679px) {
+  .student-detail:has(.student-selfie:not([hidden])) .student-detail__list { display: none; }
+  .student-selfie > img { max-height: 220px; }
   .student-detail:has(.student-password-form:not([hidden])) .student-detail__list { display: none; }
 }
 

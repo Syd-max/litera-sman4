@@ -16,6 +16,17 @@
         <div class="field field--with-icon"><label for="enrollment-year">Tahun Masuk</label><div class="field__control"><span class="field-icon" data-field-icon="clock"></span><select id="enrollment-year" name="enrollmentYear" required aria-describedby="enrollment-expiry"><option value="" disabled selected>Pilih tahun masuk</option></select></div><p class="field__hint" id="enrollment-expiry">Masa aktif akun tiga tahun ajaran sejak tahun masuk.</p></div>
         <div class="field field--with-icon"><label for="email">Email</label><div class="field__control"><span class="field-icon" data-field-icon="mail"></span><input id="email" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required></div></div>
         <div class="field field--with-icon"><label for="password">Password</label><div class="field__control"><span class="field-icon" data-field-icon="lock"></span><input id="password" name="password" type="password" autocomplete="new-password" data-password placeholder="Minimal 8 karakter" required><button class="password-toggle" type="button" data-password-toggle="password" aria-label="Tampilkan password"></button></div><p class="field__hint">Gunakan huruf besar, huruf kecil, dan angka.</p></div>
+        <div class="selfie-camera" id="selfie-time">
+          <button class="button button--secondary selfie-trigger" type="button" data-camera-open aria-haspopup="dialog" aria-controls="selfie-dialog" aria-expanded="false"><span data-field-icon="camera"></span><span>Selfie Time</span><span data-selfie-selected data-field-icon="check" hidden></span></button>
+          <div class="modal selfie-modal" id="selfie-dialog" role="dialog" aria-modal="true" aria-labelledby="selfie-title" hidden>
+            <div class="modal__dialog">
+              <div class="modal__header"><h2 id="selfie-title">Selfie Time</h2><button class="icon-button" type="button" data-camera-close aria-label="Tutup kamera">×</button></div>
+              <div class="selfie-camera__frame"><div class="selfie-camera__placeholder"><span data-field-icon="camera"></span><span>Izinkan kamera untuk mengambil selfie.</span></div><video autoplay playsinline muted hidden aria-label="Pratinjau kamera selfie"></video><img hidden alt="Selfie pendaftaran beserta tanggal dan waktu"><div class="selfie-camera__stamp" hidden></div></div>
+              <div class="selfie-camera__actions"><button class="button button--secondary" type="button" data-camera-start>Buka Ulang Kamera</button><button class="button button--primary" type="button" data-camera-capture hidden>Ambil Foto</button><button class="button button--lime" type="button" data-camera-use hidden>Gunakan Foto</button></div>
+              <p class="selfie-camera__message" data-selfie-message aria-live="polite" hidden></p>
+            </div>
+          </div>
+        </div>
         <div class="notice notice--registration"><span data-field-icon="info"></span><span>Pendaftaran membutuhkan validasi pustakawan. Akun aktif paling lambat 1×24 jam kerja.</span></div>
         <div class="notice notice--danger" data-register-error role="alert" hidden></div>
         <button class="button button--lime button--block" type="submit">Daftar Sekarang</button>

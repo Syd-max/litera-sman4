@@ -1,0 +1,17 @@
+# Selfie Time pendaftaran
+
+1. Jalankan `registration-selfies.sql` di SQL Editor. Hasil akhirnya harus menunjukkan bucket `registration-selfies`, `public=false`, dan `file_size_limit=204800`. Akun lama tetap dapat digunakan tanpa diwajibkan selfie ulang; pendaftaran baru memerlukan selfie sebelum disetujui.
+2. Tambahkan `CRON_SECRET` dari `.env` lokal ke Environment Variables Vercel untuk Production. Jangan commit atau kirim key tersebut. Fungsi memakai `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY` yang sudah dipakai reset password.
+3. Deploy ulang setelah variabel disimpan. `vercel.json` menjadwalkan `/api/cleanup-selfies` sekali sehari pada jam 18 UTC (sekitar 01.00 WIB), sesuai interval harian paket Hobby. Vercel otomatis mengirim `Authorization: Bearer CRON_SECRET`.
+
+Formulir menyediakan satu tombol **Selfie Time**. Tombol membuka popup kamera dan meminta izin kamera, tanpa mikrofon. Pratinjau menampilkan hari, tanggal, dan jam WIB dengan offset waktu server. Keterangan yang sama dicetak pada foto. Setelah mengambil foto, siswa memilih **Gunakan Foto**; membatalkan popup mempertahankan pilihan foto sebelumnya. Kamera dimatikan setelah pengambilan, penutupan popup, atau saat meninggalkan halaman. Foto dikompres di browser menjadi WebP, maksimal sisi 960 px dan 200 KB. Backend memeriksa ukuran, format, dimensi, waktu tangkap, serta sesi pendaftaran `PENDING` sebelum menyimpan. Di bawah foto pada Detail Siswa hanya ditampilkan batas simpan.
+
+File tersimpan pada bucket privat. Database menyimpan path dan waktu, bukan base64 atau foto utuh. Admin membuka foto melalui Detail Siswa → Lihat Selfie. API memverifikasi ulang token dan peran pustakawan lalu membuat signed URL maksimal 5 menit, dibatasi sisa masa simpan. Siswa lain dan pengunjung anonim tidak mempunyai akses.
+
+Foto tidak ditampilkan sesudah 7 hari dari waktu penerimaan server. File dan baris metadata kedaluwarsa dibersihkan oleh job harian, sehingga penghapusan file fisik dapat berlangsung pada jadwal harian berikutnya setelah batas tujuh hari. Job menghapus lewat Storage API dahulu, lalu metadata setelah berhasil. Kegagalan menyisakan antrean untuk dicoba lagi. Job menangani maksimal 500 foto per panggilan. Tidak ada penghapusan SQL langsung pada `storage.objects`, karena itu tidak membersihkan file sebenarnya. [Supabase Storage](https://supabase.com/docs/guides/storage/management/delete-objects), [Vercel Cron Hobby](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+
+Jika akun terhapus sebelum foto kedaluwarsa, antrean tetap ada dengan `student_id=null` agar file tidak menjadi orphan. Upload gagal dapat diulang tanpa membuat akun kedua. Akun belum dapat disetujui sebelum foto valid tercatat. Pending yang fotonya sudah lewat masa simpan bisa melengkapi kembali melalui formulir pendaftaran memakai email dan password akunnya setelah job membersihkan foto lama.
+
+Ini bukti untuk pemeriksaan manual petugas. Kamera dan cap waktu tidak memberikan verifikasi biometrik atau jaminan anti pemalsuan.
+
+Rollback: hentikan cron di Vercel, lalu kembalikan kode dan fungsi `handle_new_student()` sesuai versi sebelumnya serta hapus trigger `student_profiles_require_selfie` bila kembali memakai pendaftaran tanpa selfie. Pertahankan bucket/antrean sampai semua file dibersihkan lewat Storage API; jangan drop tabel antrean sebelum file sudah terhapus. Jangan ubah status akun atau hapus data registrasi saat rollback.
