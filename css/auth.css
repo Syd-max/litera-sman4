@@ -146,6 +146,7 @@
   display: inline-flex;
   width: 42px;
   height: 42px;
+  flex-shrink: 0;
   margin-bottom: 28px;
   align-items: center;
   justify-content: center;
@@ -153,6 +154,8 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.14);
 }
+
+.auth-back > svg { display: block; width: 20px; height: 20px; flex-shrink: 0; }
 
 .forgot-page {
   background: linear-gradient(180deg, #183887 0%, #23499a 58%, #72b0e2 100%);
