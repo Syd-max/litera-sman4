@@ -1,4 +1,5 @@
 import { icon } from "../components/icons.js";
+import { initializePasswordToggles } from "../components/password-toggle.js";
 import { setBusy, showToast } from "../components/feedback.js";
 import { friendlyError } from "../utils.js";
 import { getCurrentIdentity, registerStudent, signIn, updatePassword } from "../services/auth-service.js";
@@ -28,19 +29,6 @@ export async function restoreAuthNavigation() {
   } catch {
     // A temporary network failure must not clear a stored login session.
   }
-}
-
-function setupPasswordToggles() {
-  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
-    button.innerHTML = icon("eye");
-    button.addEventListener("click", () => {
-      const input = document.getElementById(button.dataset.passwordToggle);
-      const visible = input.type === "text";
-      input.type = visible ? "password" : "text";
-      button.innerHTML = icon(visible ? "eye" : "eyeOff");
-      button.setAttribute("aria-label", visible ? "Tampilkan password" : "Sembunyikan password");
-    });
-  });
 }
 
 function setupFieldIcons() {
@@ -175,7 +163,7 @@ function initializeUpdatePassword() {
 }
 
 setupFieldIcons();
-setupPasswordToggles();
+initializePasswordToggles();
 
 if (page === "student-login") initializeLogin("STUDENT");
 if (page === "student-login") {

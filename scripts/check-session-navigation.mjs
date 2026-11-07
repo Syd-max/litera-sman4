@@ -27,7 +27,7 @@ async function check(page, identity, search = '', fail = false) {
     querySelector: () => ({ addEventListener() {} })
   };
   globalThis.navigationCase = { toasts, readIdentity: async () => { if (fail) throw new Error('network unavailable'); return identity; } };
-  const source = `import { isStudentAccessExpired } from ${JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href)};\nconst getCurrentIdentity = () => globalThis.navigationCase.readIdentity(); const showToast = message => globalThis.navigationCase.toasts.push(message);\n` + pageSource;
+  const source = `import { isStudentAccessExpired } from ${JSON.stringify(new URL('../js/account-lifecycle.js', import.meta.url).href)};\nimport { initializePasswordToggles } from ${JSON.stringify(new URL('../js/components/password-toggle.js', import.meta.url).href)};\nconst getCurrentIdentity = () => globalThis.navigationCase.readIdentity(); const showToast = message => globalThis.navigationCase.toasts.push(message);\n` + pageSource;
   const module = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#case-${index++}`);
   await module.restoreAuthNavigation();
   return { links, redirects, handlers, toasts, historyChanges };

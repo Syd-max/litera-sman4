@@ -1,5 +1,6 @@
 import { confirmDialog, renderEmpty, renderError, setBusy, showToast } from "../components/feedback.js";
 import { icon } from "../components/icons.js";
+import { initializePasswordToggles } from "../components/password-toggle.js";
 import { renderLibrarianNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { downloadBooksCsv, downloadBooksSpreadsheet } from "../book-export.js";
@@ -224,13 +225,13 @@ async function renderStudents() {
       </dl>
       <div class="student-detail__actions">
         ${["ACTIVE", "SUSPENDED"].includes(student.status) ? `<button class="button ${suspended ? "button--primary" : "button--danger"}" type="button" data-suspension>${icon(suspended ? "checkCircle" : "lock")} ${suspended ? "Pulihkan Akun" : "Tangguhkan Akun"}</button>` : ""}
-        <button class="button button--secondary" type="button" data-password-toggle aria-expanded="false" aria-controls="student-password-form">${icon("lock")} Reset Password</button>
+        <button class="button button--secondary" type="button" data-password-panel-toggle aria-expanded="false" aria-controls="student-password-form">${icon("lock")} Reset Password</button>
       </div>
       <section id="student-selfie-view" class="student-selfie" hidden aria-label="Bukti selfie pendaftaran"></section>
       <form id="student-password-form" class="student-password-form stack" hidden>
         <div><h3>Password baru</h3><p>Password langsung diganti tanpa email. Sampaikan password baru kepada siswa secara aman.</p></div>
-        <div class="field"><label for="student-new-password">Password baru</label><input id="student-new-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required aria-describedby="student-password-hint"><small id="student-password-hint">8–72 karakter, dengan huruf besar, huruf kecil, dan angka.</small></div>
-        <div class="field"><label for="student-confirm-password">Konfirmasi password baru</label><input id="student-confirm-password" name="confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+        <div class="field"><label for="student-new-password">Password baru</label><div class="field__control"><input id="student-new-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required aria-describedby="student-password-hint"><button class="password-toggle" type="button" data-password-toggle="student-new-password" aria-label="Tampilkan password baru"></button></div><small id="student-password-hint">8–72 karakter, dengan huruf besar, huruf kecil, dan angka.</small></div>
+        <div class="field"><label for="student-confirm-password">Konfirmasi password baru</label><div class="field__control"><input id="student-confirm-password" name="confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="72" required><button class="password-toggle" type="button" data-password-toggle="student-confirm-password" aria-label="Tampilkan konfirmasi password baru"></button></div></div>
         <button class="button button--primary" type="submit">Simpan Password Baru</button>
       </form>
       <button class="button button--secondary button--block" type="button" data-close>Tutup</button>
@@ -248,7 +249,7 @@ async function renderStudents() {
       busy = value;
       modal.querySelectorAll("button, input").forEach(element => { element.disabled = value; });
     };
-    const passwordToggle = modal.querySelector("[data-password-toggle]");
+    const passwordToggle = modal.querySelector("[data-password-panel-toggle]");
     const passwordForm = modal.querySelector("form");
     const selfieHost = modal.querySelector(".student-selfie");
     const selfieToggle = modal.querySelector("[data-selfie-toggle]");
@@ -310,6 +311,7 @@ async function renderStudents() {
     modal.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
     modal.addEventListener("click", (event) => { if (event.target === modal) close(); });
     document.body.append(modal);
+    initializePasswordToggles(passwordForm);
     modal.querySelector("[data-close]").focus();
   }
 

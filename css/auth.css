@@ -28,7 +28,6 @@
 .field--with-icon .field-icon { position: absolute; z-index: 1; top: 50%; left: 15px; color: rgba(255,255,255,.9); transform: translateY(-50%); pointer-events: none; }
 .field--with-icon .field-icon svg { width: 19px; height: 19px; }
 .field--with-icon input { padding-left: 46px; }
-.field--with-icon input[data-password] { padding-right: 50px; }
 .notice--registration { align-items: flex-start; color: #d8ff75; border-color: rgba(186,255,34,.42); background: rgba(186,255,34,.1); }
 .notice--registration > span:first-child { flex: 0 0 20px; margin-top: 1px; }
 .notice--registration svg { width: 19px; height: 19px; }
@@ -203,22 +202,7 @@
 .forgot-help { margin: auto 0 0; padding-top: 28px; color: var(--lime-400); text-align: center; font-size: .7rem; font-weight: 700; }
 .forgot-help a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
-.password-toggle {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 50%;
-  color: #fff;
-  background: transparent;
-  transform: translateY(-50%);
-}
-
-.password-toggle svg { width: 21px; height: 21px; }
-.auth-form input[type="password"], .auth-form input[data-password] { padding-right: 50px; }
+.auth-form .password-toggle { color: #fff; }
 
 .auth-status {
   display: grid;

@@ -333,6 +333,24 @@
   border-color: var(--danger);
 }
 
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink-700);
+  background: transparent;
+  transform: translateY(-50%);
+}
+
+.password-toggle svg { width: 21px; height: 21px; }
+.field__control:has(.password-toggle) > input { padding-right: 54px; }
+.field__control:has(.password-toggle) > input::-ms-reveal { display: none; }
+
 .field__hint,
 .field__error {
   margin: 0;

@@ -503,7 +503,7 @@ function renderInfo() {
     <details><summary><span>Keterlambatan pengembalian</span>${icon("arrowRight")}</summary><div>Pinjaman yang melewati batas kembali akan ditandai terlambat. Segera kembalikan buku dan hubungi petugas untuk mengetahui ketentuan perpustakaan yang berlaku.</div></details>
     <details><summary><span>Masalah akun dan login</span>${icon("arrowRight")}</summary><div>Akun siswa baru dapat digunakan setelah disetujui pustakawan. Jika lupa password, gunakan menu Lupa Password pada halaman login. Hubungi petugas bila email tidak dikenali atau akun belum aktif.</div></details>
   </div></section>
-  <section class="help-contact"><div><strong>Masih butuh bantuan?</strong><span>Senin–Jumat, 08.00–16.00 WIB</span></div><a href="mailto:library@sman4.sch.id">${icon("mail")} Hubungi petugas</a></section>`;
+  <section class="help-contact"><div><strong>Masih butuh bantuan?</strong><span>Senin–Jumat, 08.00–16.00 WIB</span></div></section>`;
 }
 
 async function initialize() {

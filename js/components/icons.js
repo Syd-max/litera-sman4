@@ -30,7 +30,7 @@ const paths = {
   lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
   shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 3.2 2.4c-.8.3-.8 1.1-.8 1.6M12 17h.01"/>',
-  message: '<path d="M21 12a8 8 0 0 1-8 8H8l-5 2 1.7-4.2A8 8 0 1 1 21 12z"/>',
+  message: '<path d="M21 11.5C21 16.2 17 20 12 20c-1.3 0-2.6-.3-3.7-.8L3 21l1.5-4.6C3.5 15 3 13.3 3 11.5 3 6.8 7 3 12 3s9 3.8 9 8.5Z"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
   external: '<path d="M15 3h6v6M10 14 21 3"/><path d="M18 13v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h7"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>'
