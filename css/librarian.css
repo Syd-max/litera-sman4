@@ -41,6 +41,7 @@
 .admin-nav .nav-item__icon { width: 24px; height: 24px; }
 .admin-nav .nav-item svg { width: 20px; height: 20px; }
 .admin-nav .nav-item:hover, .admin-nav .nav-item[aria-current="page"] { color: #102b68; background: var(--lime-400); }
+.admin-nav__dot { width: 12px; height: 12px; flex: 0 0 12px; margin-inline-start: auto; border: 2px solid #fff; border-radius: 50%; background: var(--danger); }
 .admin-sidebar-logout { display: flex; min-height: 46px; align-items: center; gap: 11px; padding: 10px 12px; color: rgba(255,255,255,.88); border: 0; border-top: 1px solid rgba(255,255,255,.18); background: transparent; font-size: .78rem; }
 .admin-sidebar-logout svg { width: 19px; height: 19px; }
 

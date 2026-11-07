@@ -9,16 +9,17 @@ const studentItems = [
 
 const librarianItems = [
   ["home", "Overview", "./index.html", "dashboard"],
-  ["users", "Validasi Siswa", "./students.html", "siswa"],
+  ["users", "Validasi Siswa", "./students.html", "siswa", true],
   ["book", "Data Buku", "./books.html", "buku"],
   ["shelves", "Stok Kosong", "./empty-stock.html", "stok-kosong"],
   ["archive", "Arsip Buku", "./archive.html", "arsip"],
-  ["clock", "Peminjaman", "./loans.html", "pinjaman"]
+  ["clock", "Peminjaman", "./loans.html", "pinjaman", true]
 ];
 
-function itemMarkup([iconName, label, href, activeKey], active) {
+function itemMarkup([iconName, label, href, activeKey, hasNotice], active) {
   const current = active === (activeKey || label.toLowerCase()) ? ' aria-current="page"' : "";
-  return `<a class="nav-item" href="${href}"${current}><span class="nav-item__icon">${icon(iconName)}</span><span>${label}</span></a>`;
+  const notice = hasNotice ? `<span class="admin-nav__dot" data-admin-notice="${activeKey}" hidden><span class="sr-only">Ada permintaan menunggu</span></span>` : "";
+  return `<a class="nav-item" href="${href}"${current}><span class="nav-item__icon">${icon(iconName)}</span><span>${label}</span>${notice}</a>`;
 }
 
 export function renderStudentNavigation(active) {

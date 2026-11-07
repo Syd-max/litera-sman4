@@ -29,7 +29,17 @@ export async function listStudents() {
   return (data || []).map(student => isStudentAccessExpired(student) ? { ...student, status: "EXPIRED" } : student);
 }
 
-export async function subscribeToStudentRegistrations(onChange) {
+export async function hasPendingStudentRegistrations() {
+  const client = await getSupabase();
+  const { data, error } = await client.from("student_profiles").select("id")
+    .eq("status", "PENDING")
+    .or(`access_expires_at.is.null,access_expires_at.gt.${new Date().toISOString()}`)
+    .limit(1);
+  if (error) throw error;
+  return Boolean(data?.length);
+}
+
+export async function subscribeToStudentRegistrations(onChange, onSubscribed) {
   const client = await getSupabase();
   const channel = client
     .channel(`student-registrations-${crypto.randomUUID()}`)
@@ -38,7 +48,7 @@ export async function subscribeToStudentRegistrations(onChange) {
       { event: "*", schema: "public", table: "student_profiles" },
       onChange
     )
-    .subscribe();
+    .subscribe(status => { if (status === "SUBSCRIBED") onSubscribed?.(); });
 
   return () => client.removeChannel(channel);
 }

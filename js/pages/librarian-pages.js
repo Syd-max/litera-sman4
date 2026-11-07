@@ -5,9 +5,9 @@ import { initializeSelectMenus } from "../components/select-menu.js";
 import { downloadBooksCsv, downloadBooksSpreadsheet } from "../book-export.js";
 import { archiveBook, bookCoverStoragePath, getBook, isBookOutOfStock, listArchivedBooks, listBooks, listBooksForExport, listCategories, removeBookCover, restoreBook, saveBook, uploadBookCover } from "../services/book-service.js";
 import { requireRole, signOut } from "../services/auth-service.js";
-import { approveLoan, confirmReturn, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
+import { approveLoan, confirmReturn, hasPendingLoanRequests, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
-import { dashboardMetrics, deleteRejectedStudent, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
+import { dashboardMetrics, deleteRejectedStudent, hasPendingStudentRegistrations, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
 import { isStudentAccessExpired, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
@@ -16,6 +16,50 @@ import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue,
 const page = document.body.dataset.page;
 const main = document.getElementById("admin-main");
 const fallbackCoverUrl = "../assets/book-placeholder.svg";
+const noticeChecks = { siswa: hasPendingStudentRegistrations, pinjaman: hasPendingLoanRequests };
+const latestNoticeCheck = new WeakMap();
+
+async function refreshSidebarNotice(key) {
+  const dot = document.querySelector(`[data-admin-notice="${key}"]`);
+  const check = noticeChecks[key]();
+  latestNoticeCheck.set(dot, check);
+  try {
+    const hasPending = await check;
+    if (latestNoticeCheck.get(dot) === check) dot.hidden = !hasPending;
+  } catch {
+    // Keep the last known state when the connection drops.
+  }
+}
+
+function watchSidebarNotices(reloadStudents, reloadLoans) {
+  const subscriptions = [
+    ["siswa", subscribeToStudentRegistrations, reloadStudents],
+    ["pinjaman", subscribeToLoans, reloadLoans]
+  ].map(([key, subscribe, reload]) => {
+    const refresh = () => void refreshSidebarNotice(key);
+    return subscribe(() => {
+      refresh();
+      void reload?.(false);
+    }, refresh).catch(() => null);
+  });
+
+  const refreshVisible = () => {
+    if (document.visibilityState !== "visible") return;
+    void refreshSidebarNotice("siswa");
+    void refreshSidebarNotice("pinjaman");
+  };
+  refreshVisible();
+  window.addEventListener("focus", refreshVisible);
+  window.addEventListener("pageshow", refreshVisible);
+  document.addEventListener("visibilitychange", refreshVisible);
+  window.addEventListener("pagehide", event => {
+    if (event.persisted) return;
+    subscriptions.forEach(subscription => void subscription.then(stop => stop?.()).catch(() => {}));
+    window.removeEventListener("focus", refreshVisible);
+    window.removeEventListener("pageshow", refreshVisible);
+    document.removeEventListener("visibilitychange", refreshVisible);
+  });
+}
 
 main.addEventListener("error", (event) => {
   const image = event.target.closest?.("img[data-book-cover]");
@@ -104,8 +148,7 @@ async function renderDashboard(identity) {
     }
   }
   await load();
-  const stops = await Promise.all([subscribeToStudentRegistrations(() => load(false)), subscribeToLoans(() => load(false))]);
-  window.addEventListener("pagehide", () => stops.forEach((stop) => stop()), { once: true });
+  return load;
 }
 
 async function renderStudents() {
@@ -308,13 +351,16 @@ async function renderStudents() {
     const approve = decision === "ACTIVE";
     if (!await confirmDialog({ title: approve ? "Setujui siswa?" : "Tolak pendaftaran?", message: approve ? "Siswa akan dapat login setelah disetujui." : "Siswa tidak akan dapat menggunakan akun ini.", confirmLabel: approve ? "Setujui" : "Tolak", danger: !approve })) return;
     setBusy(button, true);
-    try { await reviewStudent(button.dataset.student, decision); showToast(approve ? "Siswa disetujui dan sekarang dapat login." : "Pendaftaran siswa ditolak.", "success"); await load(false); }
+    try {
+      await reviewStudent(button.dataset.student, decision);
+      void refreshSidebarNotice("siswa");
+      showToast(approve ? "Siswa disetujui dan sekarang dapat login." : "Pendaftaran siswa ditolak.", "success");
+      await load(false);
+    }
     catch (error) { showToast(friendlyError(error), "danger"); setBusy(button, false); }
   });
   await load();
 
-  let stopRealtime = () => {};
-  subscribeToStudentRegistrations(() => load(false)).then((stop) => { stopRealtime = stop; }).catch(() => {});
   const refreshVisible = () => { if (document.visibilityState === "visible") void load(false); };
   window.addEventListener("focus", refreshVisible);
   window.addEventListener("pageshow", refreshVisible);
@@ -322,11 +368,11 @@ async function renderStudents() {
   window.addEventListener("pagehide", (event) => {
     if (event.persisted) return;
     clearTimeout(expiryTimer);
-    stopRealtime();
     window.removeEventListener("focus", refreshVisible);
     window.removeEventListener("pageshow", refreshVisible);
     document.removeEventListener("visibilitychange", refreshVisible);
   });
+  return load;
 }
 
 function bookFormMarkup(book = {}, categories = [], manualUpload = false) {
@@ -590,6 +636,7 @@ async function performLoanAction(button, reload, close) {
     if (action === "returned") await confirmReturn(button.dataset.loan);
     if (action === "extension-approve") await reviewLoanExtension(button.dataset.loan, "APPROVED");
     if (action === "extension-reject") await reviewLoanExtension(button.dataset.loan, "REJECTED");
+    void refreshSidebarNotice("pinjaman");
     showToast("Status transaksi diperbarui.", "success");
     close();
     await reload();
@@ -639,8 +686,7 @@ async function renderLoans(showHistory = false) {
     if (loan) openLoanDetail(loan, load, showHistory);
   });
   await load();
-  const stopRealtime = await subscribeToLoans(() => load(false));
-  window.addEventListener("pagehide", stopRealtime, { once: true });
+  return load;
 }
 
 async function initialize() {
@@ -649,13 +695,15 @@ async function initialize() {
     const identity = await requireRole("LIBRARIAN");
     if (!identity) return;
     renderShell(identity);
-    if (page === "dashboard") await renderDashboard(identity);
-    if (page === "students") await renderStudents();
+    let reloadStudents, reloadLoans;
+    if (page === "dashboard") reloadStudents = reloadLoans = await renderDashboard(identity);
+    if (page === "students") reloadStudents = await renderStudents();
     if (page === "books") await renderBooks();
     if (page === "empty-stock") await renderBooks(true);
     if (page === "archive") await renderArchive();
-    if (page === "loans") await renderLoans(false);
-    if (page === "transactions") await renderLoans(true);
+    if (page === "loans") reloadLoans = await renderLoans(false);
+    if (page === "transactions") reloadLoans = await renderLoans(true);
+    watchSidebarNotices(reloadStudents, reloadLoans);
   } catch (error) {
     if (error instanceof MissingConfigurationError) configurationBlock();
     else renderError(main, friendlyError(error));

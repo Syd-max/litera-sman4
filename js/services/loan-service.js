@@ -37,12 +37,21 @@ export const reviewLoanExtension = (loanId, decision) => call("review_loan_exten
 export const requestReturn = (loanId) => call("request_return", { p_loan_id: loanId });
 export const confirmReturn = (loanId) => call("confirm_return", { p_loan_id: loanId });
 
-export async function subscribeToLoans(onChange) {
+export async function hasPendingLoanRequests() {
+  const client = await getSupabase();
+  const { data, error } = await client.from("loans").select("id")
+    .or("status.in.(PENDING,RETURN_REQUESTED),and(status.eq.BORROWED,extension_status.eq.PENDING)")
+    .limit(1);
+  if (error) throw error;
+  return Boolean(data?.length);
+}
+
+export async function subscribeToLoans(onChange, onSubscribed) {
   const client = await getSupabase();
   const channel = client
     .channel(`loans-${crypto.randomUUID()}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "loans" }, onChange)
-    .subscribe();
+    .subscribe(status => { if (status === "SUBSCRIBED") onSubscribed?.(); });
 
   return () => client.removeChannel(channel);
 }
