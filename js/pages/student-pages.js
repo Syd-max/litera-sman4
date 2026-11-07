@@ -327,6 +327,9 @@ async function renderBookDetail() {
 function loanCard(loan) {
   const canReturn = loan.status === "BORROWED";
   const canExtend = canReturn && !loan.extension_status && isDueSoon(loan.due_at);
+  const showEstimate = loan.status === "APPROVED" && !loan.due_at;
+  const dueDate = showEstimate ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : loan.due_at;
+  const dateOptions = { timeZone: "Asia/Jakarta" };
   const dateLabel = loan.borrowed_at ? "Tanggal Pinjam" : "Tanggal Pengajuan";
   const dateValue = loan.borrowed_at || loan.requested_at;
   const extensionNotice = ({
@@ -337,7 +340,14 @@ function loanCard(loan) {
   })[loan.extension_status];
   return `<article class="loan-card card">
     <div class="loan-card__header"><div><h2>${escapeHtml(loan.book?.title || "Buku")}</h2><span class="loan-card__id">ID: ${escapeHtml(loan.id.slice(0, 8).toUpperCase())}</span></div><span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span></div>
-    <div class="loan-card__dates"><div><span>${dateLabel}</span><strong>${formatDate(dateValue)}</strong></div><div class="${canExtend ? "loan-card__due--urgent" : ""}"><span>Batas Kembali</span><strong>${formatDate(loan.due_at)}</strong></div></div>
+    <div class="loan-card__dates">
+      <div><span>${dateLabel}</span><strong>${formatDate(dateValue, dateOptions)}</strong></div>
+      <div class="${canExtend ? "loan-card__due--urgent" : ""}">
+        <span>${showEstimate ? "Perkiraan Batas Kembali" : "Batas Kembali"}</span>
+        <strong>${formatDate(dueDate, dateOptions)}</strong>
+        ${showEstimate ? "<small>Jika buku diambil hari ini</small>" : ""}
+      </div>
+    </div>
     ${loan.rejection_reason ? `<div class="notice notice--danger">${icon("alert")}<span>${escapeHtml(loan.rejection_reason)}</span></div>` : ""}
     ${extensionNotice ? `<div class="notice ${extensionNotice[0]}">${icon("info")}<span>${extensionNotice[1]}</span></div>` : ""}
     ${canReturn ? `<div class="loan-card__actions">${canExtend ? `<button class="button button--primary button--block" type="button" data-extension="${loan.id}">Ajukan Perpanjangan 7 Hari</button>` : ""}<button class="button button--secondary button--block" type="button" data-return="${loan.id}">Ajukan Pengembalian</button></div>` : ""}
