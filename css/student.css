@@ -11,9 +11,9 @@
 }
 
 .student-profile-mini img {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
   object-fit: contain;
 }
 
@@ -239,7 +239,7 @@
 .profile-hero__inner { width: min(100%, 760px); margin-inline: auto; padding: max(18px,env(safe-area-inset-top)) 20px 18px; }
 .profile-identity { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .profile-hero__nav { display: none; }
-.profile-identity img { width: 58px; height: 58px; flex: 0 0 58px; border: 2px solid var(--lime-400); border-radius: 50%; object-fit: contain; }
+.profile-identity img { width: 68px; height: 68px; flex: 0 0 68px; object-fit: contain; }
 .profile-identity > div { min-width: 0; }
 .profile-identity h1 { overflow: hidden; margin: 0 0 3px; color: #fff; font-size: 1rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .profile-identity p { overflow: hidden; margin: 0; color: var(--lime-400); font-size: .64rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
@@ -286,7 +286,6 @@
   .topbar__row p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .favorites-topbar__row p { max-width: none; }
   .profile-hero .profile-hero__inner { display: grid; width: min(100%,var(--content-width)); min-height: 108px; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 22px clamp(18px,4vw,34px); }
-  .profile-identity img { width: 48px; height: 48px; flex-basis: 48px; }
   .profile-hero__nav { display: flex; justify-content: flex-end; margin: 0; padding: 0; border: 0; }
   .profile-hero__nav .desktop-nav { display: flex; gap: 10px; }
   .profile-hero__nav .desktop-nav a { min-height: 42px; padding: 9px 16px; font-size: .9rem; }

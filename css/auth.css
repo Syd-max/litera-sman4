@@ -56,9 +56,9 @@
 }
 
 .auth-brand img {
-  width: 116px;
-  height: 112px;
-  margin: 0 auto 18px;
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 14px;
   object-fit: contain;
 }
 
@@ -183,7 +183,7 @@
 }
 
 .forgot-brand { margin-top: 18px; text-align: center; }
-.forgot-brand img { width: 84px; height: 84px; margin: 0 auto 10px; object-fit: contain; }
+.forgot-brand img { width: 112px; height: 112px; margin: 0 auto 10px; object-fit: contain; }
 .forgot-brand h1 { margin: 0 0 3px; color: #fff; font-size: 1.18rem; line-height: 1.1; }
 .forgot-brand p { margin: 0; color: var(--lime-400); font-size: .62rem; font-weight: 800; }
 .forgot-content { margin-top: 28px; }
@@ -216,9 +216,9 @@
 .success-page { background: #303030; }
 .success-page .auth-status { padding: 16px; background: #303030; }
 .auth-status__content { width: min(100%, 420px); padding: 38px; border-radius: 2px; background: #fff; box-shadow: 0 18px 50px rgba(0,0,0,.18); }
-.auth-status__icon { position: relative; width: 112px; height: 112px; margin: 0 auto 24px; padding: 13px; border-radius: 50%; background: #eef1ff; }
+.auth-status__icon { position: relative; width: 132px; height: 132px; margin: 0 auto 20px; }
 .auth-status__icon img { width: 100%; height: 100%; object-fit: contain; }
-.auth-status__icon > span { position: absolute; right: -3px; bottom: -3px; display: grid; width: 34px; height: 34px; place-items: center; border: 4px solid #fff; border-radius: 50%; color: #fff; background: var(--success); }
+.auth-status__icon > span { position: absolute; top: -8px; right: -8px; display: grid; width: 34px; height: 34px; place-items: center; border: 4px solid #fff; border-radius: 50%; color: #fff; background: var(--success); }
 .auth-status__icon > span svg { width: 20px; height: 20px; }
 .auth-status h1 { margin-bottom: 10px; font-size: clamp(1.65rem, 5vw, 1.9rem); }
 .auth-status p { color: var(--ink-700); }
@@ -241,12 +241,6 @@
     text-align: center;
   }
 
-  .auth-brand img {
-    width: 116px;
-    height: 112px;
-    margin: 0 auto 18px;
-  }
-
   .auth-brand h1 { font-size: 2.75rem; }
 
   .forgot-shell {
@@ -260,13 +254,13 @@
   .forgot-back { width: 40px; height: 40px; }
   .forgot-brand {
     display: grid;
-    grid-template-columns: 80px minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     column-gap: 18px;
     align-items: center;
     margin: 0;
     text-align: left;
   }
-  .forgot-brand img { grid-row: span 2; width: 80px; height: 80px; margin: 0; }
+  .forgot-brand img { grid-row: span 2; margin: 0; }
   .forgot-brand h1 { align-self: end; margin: 0 0 5px; font-size: 1.4rem; }
   .forgot-brand p { align-self: start; font-size: .7rem; }
   .forgot-content { display: grid; gap: 18px; margin: 0; }

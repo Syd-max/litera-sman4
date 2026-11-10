@@ -32,7 +32,7 @@
 .admin-sidebar-backdrop { position: fixed; z-index: 60; inset: 72px 0 0; border: 0; background: rgba(7,18,37,.42); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
 .admin-sidebar-open .admin-sidebar-backdrop { opacity: 1; pointer-events: auto; }
 .admin-nav__brand { display: flex; min-width: 0; align-items: center; gap: 11px; padding: 0 4px 16px; color: #fff; border-bottom: 1px solid rgba(255,255,255,.17); }
-.admin-nav__brand img { width: 48px; height: 48px; flex: 0 0 48px; object-fit: contain; }
+.admin-nav__brand img { width: 62px; height: 62px; flex: 0 0 62px; object-fit: contain; }
 .admin-nav__brand span, .admin-nav__brand strong, .admin-nav__brand small { display: block; min-width: 0; }
 .admin-nav__brand strong { color: #fff; font-size: .96rem; }
 .admin-nav__brand small { margin-top: 3px; color: rgba(255,255,255,.72); font-size: .58rem; line-height: 1.35; }
