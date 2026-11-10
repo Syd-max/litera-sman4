@@ -181,9 +181,30 @@ async function renderDashboard(identity) {
   return load;
 }
 
+function cohortFilterMarkup(id) {
+  return `<div><label class="sr-only" for="${id}">Filter angkatan</label><select id="${id}"><option value="">Semua angkatan</option></select></div>`;
+}
+
+function updateCohortOptions(select, years) {
+  const available = [...new Set(years.map(Number).filter(year => Number.isInteger(year) && year >= 2000 && year <= 2100))]
+    .sort((a, b) => b - a).map(String);
+  if (select.options.length === available.length + 1 && available.every((year, index) => select.options[index + 1].value === year)) return;
+  const selected = select.value;
+  select.replaceChildren(new Option("Semua angkatan", ""), ...available.map(year => new Option(`Angkatan ${year}`, year)));
+  select.value = available.includes(selected) ? selected : "";
+}
+
 async function renderStudents() {
-  main.innerHTML = `<div class="student-management-sticky"><section class="student-overview" aria-label="Ringkasan status siswa"><article class="student-overview--pending"><span>${icon("clock")}</span><div><strong id="student-stat-pending">0</strong><h2>Menunggu Validasi</h2><p>Perlu ditinjau pustakawan</p></div></article><article class="student-overview--active"><span>${icon("checkCircle")}</span><div><strong id="student-stat-active">0</strong><h2>Aktif</h2><p>Akun sudah terverifikasi</p></div></article><article class="student-overview--rejected"><span>${icon("close")}</span><div><strong id="student-stat-rejected">0</strong><h2>Ditolak</h2><p>Registrasi tidak disetujui</p></div></article></section><div class="toolbar toolbar--students"><div class="search-field">${icon("search")}<label class="sr-only" for="student-search">Cari siswa</label><input id="student-search" type="search" placeholder="Cari nama, kelas, email..."></div><div class="status-filter"><label class="sr-only" for="student-status">Filter status siswa</label><select id="student-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="ACTIVE">Aktif</option><option value="REJECTED">Ditolak</option><option value="SUSPENDED">Ditangguhkan</option><option value="EXPIRED">Masa Aktif Habis</option></select></div></div></div><div id="student-results" aria-live="polite"></div>`;
+  main.innerHTML = `<div class="student-management-sticky"><section class="student-overview" aria-label="Ringkasan status siswa"><article class="student-overview--pending"><span>${icon("clock")}</span><div><strong id="student-stat-pending">0</strong><h2>Menunggu Validasi</h2><p>Perlu ditinjau pustakawan</p></div></article><article class="student-overview--active"><span>${icon("checkCircle")}</span><div><strong id="student-stat-active">0</strong><h2>Aktif</h2><p>Akun sudah terverifikasi</p></div></article><article class="student-overview--rejected"><span>${icon("close")}</span><div><strong id="student-stat-rejected">0</strong><h2>Ditolak</h2><p>Registrasi tidak disetujui</p></div></article></section>
+    <div class="toolbar toolbar--students">
+      <div class="search-field">${icon("search")}<label class="sr-only" for="student-search">Cari siswa</label><input id="student-search" type="search" placeholder="Cari nama, kelas, email..."></div>
+      <div class="toolbar__filters">
+        <div class="status-filter"><label class="sr-only" for="student-status">Filter status siswa</label><select id="student-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="ACTIVE">Aktif</option><option value="REJECTED">Ditolak</option><option value="SUSPENDED">Ditangguhkan</option><option value="EXPIRED">Masa Aktif Habis</option></select></div>
+        ${cohortFilterMarkup("student-cohort")}
+      </div>
+    </div></div><div id="student-results" aria-live="polite"></div>`;
   const host = document.getElementById("student-results");
+  const cohortSelect = document.getElementById("student-cohort");
   let students = [];
   let loading = false;
   let expiryTimer;
@@ -200,6 +221,7 @@ async function renderStudents() {
   }
 
   function drawOverview() {
+    updateCohortOptions(cohortSelect, students.map(student => student.enrollment_year));
     document.getElementById("student-stat-pending").textContent = students.filter((student) => student.status === "PENDING").length.toLocaleString("id-ID");
     document.getElementById("student-stat-active").textContent = students.filter((student) => student.status === "ACTIVE").length.toLocaleString("id-ID");
     document.getElementById("student-stat-rejected").textContent = students.filter((student) => student.status === "REJECTED").length.toLocaleString("id-ID");
@@ -208,7 +230,12 @@ async function renderStudents() {
   function draw() {
     const needle = document.getElementById("student-search").value.toLocaleLowerCase("id-ID");
     const status = document.getElementById("student-status").value;
-    const filtered = students.filter((student) => (!status || student.status === status) && `${student.full_name} ${student.class_name} ${student.email}`.toLocaleLowerCase("id-ID").includes(needle));
+    const cohort = cohortSelect.value;
+    const filtered = students.filter(student => {
+      if (status && student.status !== status) return false;
+      if (cohort && String(student.enrollment_year) !== cohort) return false;
+      return `${student.full_name} ${student.class_name} ${student.email}`.toLocaleLowerCase("id-ID").includes(needle);
+    });
     if (!filtered.length) {
       renderEmpty(host, { title: "Tidak ada data siswa", message: "Ubah filter atau tunggu pendaftaran baru.", iconName: "users" });
       return;
@@ -355,6 +382,7 @@ async function renderStudents() {
 
   document.getElementById("student-search").addEventListener("input", draw);
   document.getElementById("student-status").addEventListener("change", draw);
+  cohortSelect.addEventListener("change", draw);
   host.addEventListener("click", async (event) => {
     const deleteButton = event.target.closest("[data-student-delete]");
     if (deleteButton) {
@@ -693,23 +721,42 @@ function openLoanDetail(loan, reload, showHistory) {
 }
 
 async function renderLoans(showHistory = false) {
-  main.innerHTML = `<nav class="admin-tabs" aria-label="Jenis data peminjaman"><a href="./loans.html" ${showHistory ? "" : 'aria-current="page"'}>Peminjaman Aktif</a><a href="./transactions.html" ${showHistory ? 'aria-current="page"' : ""}>Riwayat Selesai</a></nav><div class="toolbar"><div class="search-field">${icon("search")}<label class="sr-only" for="loan-search">Cari transaksi</label><input id="loan-search" type="search" placeholder="Cari siswa atau buku..."></div>${showHistory ? "" : `<select id="loan-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="APPROVED">Disetujui</option><option value="BORROWED">Dipinjam</option><option value="EXTENSION_PENDING">Perpanjangan</option><option value="RETURN_REQUESTED">Pengembalian</option></select>`}</div><div id="loan-results"></div>`;
+  main.innerHTML = `<nav class="admin-tabs" aria-label="Jenis data peminjaman"><a href="./loans.html" ${showHistory ? "" : 'aria-current="page"'}>Peminjaman Aktif</a><a href="./transactions.html" ${showHistory ? 'aria-current="page"' : ""}>Riwayat Selesai</a></nav>
+    <div class="toolbar">
+      <div class="search-field">${icon("search")}<label class="sr-only" for="loan-search">Cari transaksi</label><input id="loan-search" type="search" placeholder="Cari siswa atau buku..."></div>
+      <div class="toolbar__filters">
+        ${showHistory ? "" : `<div class="status-filter"><label class="sr-only" for="loan-status">Filter status peminjaman</label><select id="loan-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="APPROVED">Disetujui</option><option value="BORROWED">Dipinjam</option><option value="EXTENSION_PENDING">Perpanjangan</option><option value="RETURN_REQUESTED">Pengembalian</option></select></div>`}
+        ${cohortFilterMarkup("loan-cohort")}
+      </div>
+    </div><div id="loan-results"></div>`;
   const host = document.getElementById("loan-results");
+  const cohortSelect = document.getElementById("loan-cohort");
   let loans = [];
   function draw() {
     const needle = document.getElementById("loan-search").value.toLocaleLowerCase("id-ID");
     const status = document.getElementById("loan-status")?.value || "";
-    const filtered = loans.filter((loan) => (!status || (status === "EXTENSION_PENDING" ? loan.extension_status === "PENDING" : loan.status === status)) && `${loan.student?.full_name || ""} ${loan.book?.title || ""}`.toLocaleLowerCase("id-ID").includes(needle));
+    const cohort = cohortSelect.value;
+    const filtered = loans.filter(loan => {
+      const matchesStatus = status === "EXTENSION_PENDING" ? loan.extension_status === "PENDING" : loan.status === status;
+      if (status && !matchesStatus) return false;
+      if (cohort && String(loan.student?.enrollment_year) !== cohort) return false;
+      return `${loan.student?.full_name || ""} ${loan.book?.title || ""}`.toLocaleLowerCase("id-ID").includes(needle);
+    });
     if (!filtered.length) { renderEmpty(host, { title: "Tidak ada transaksi", message: "Data yang sesuai akan tampil di sini.", iconName: "clock" }); return; }
     host.innerHTML = `<div class="loan-admin-list">${filtered.map((loan) => `<article class="loan-admin-row"><div class="loan-admin-row__student"><strong title="${escapeHtml(loan.student?.full_name || "-")}">${escapeHtml(loan.student?.full_name || "-")}</strong><small>${escapeHtml(loan.student?.class_name || "")}</small></div><div class="loan-admin-row__book"><span>Buku</span><strong title="${escapeHtml(loan.book?.title || "-")}">${escapeHtml(loan.book?.title || "-")}</strong></div><div class="loan-admin-row__date"><span>${showHistory ? "Dikembalikan" : "Diajukan"}</span><strong>${formatDate(showHistory ? loan.returned_at : loan.requested_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</strong></div><div class="loan-admin-row__status"><span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span>${loan.extension_status === "PENDING" ? `<span class="badge badge--warning">Perpanjangan</span>` : ""}</div><button class="button button--small button--secondary" type="button" data-loan-detail="${loan.id}">Detail</button></article>`).join("")}</div>`;
   }
   async function load(showLoading = true) {
     if (showLoading) host.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
-    try { loans = (await listAllLoans()).filter((loan) => showHistory ? loan.status === "RETURNED" : isActiveLoanStatus(loan.status)); draw(); }
+    try {
+      loans = (await listAllLoans()).filter(loan => showHistory ? loan.status === "RETURNED" : isActiveLoanStatus(loan.status));
+      updateCohortOptions(cohortSelect, loans.map(loan => loan.student?.enrollment_year));
+      draw();
+    }
     catch (error) { renderError(host, friendlyError(error)); }
   }
   document.getElementById("loan-search").addEventListener("input", draw);
   document.getElementById("loan-status")?.addEventListener("change", draw);
+  cohortSelect.addEventListener("change", draw);
   host.addEventListener("click", (event) => {
     const button = event.target.closest("[data-loan-detail]");
     if (!button) return;

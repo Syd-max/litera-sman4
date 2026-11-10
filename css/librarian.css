@@ -79,6 +79,9 @@
 .toolbar .search-field { min-width: min(100%,300px); flex: 1; }
 .toolbar__actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .toolbar > .select-menu, .status-filter { width: min(100%,210px); flex: 0 1 210px; }
+.toolbar__filters { display: grid; width: min(100%,432px); grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 12px; }
+.toolbar__filters:has(> :only-child) { width: min(100%,210px); }
+.toolbar__filters > .status-filter { width: auto; }
 .toolbar .select-menu__button { min-height: 50px; }
 .book-management-sticky { position: sticky; z-index: 40; top: 72px; margin: -8px 0 10px; padding-top: 8px; background: rgba(237,244,251,.97); backdrop-filter: blur(10px); }
 .student-management-sticky { position: sticky; z-index: 40; top: 72px; margin: -8px 0 10px; padding-top: 8px; background: rgba(237,244,251,.97); backdrop-filter: blur(10px); }

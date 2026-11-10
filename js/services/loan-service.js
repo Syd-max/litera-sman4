@@ -1,6 +1,6 @@
 import { getSupabase } from "./supabase.js";
 
-const loanSelection = "id,status,requested_at,approved_at,borrowed_at,due_at,return_requested_at,returned_at,rejection_reason,extension_status,extension_requested_at,extension_reviewed_at,book:books(id,title,authors,cover_url),student:student_profiles(id,full_name,class_name)";
+const loanSelection = "id,status,requested_at,approved_at,borrowed_at,due_at,return_requested_at,returned_at,rejection_reason,extension_status,extension_requested_at,extension_reviewed_at,book:books(id,title,authors,cover_url),student:student_profiles(id,full_name,class_name,enrollment_year)";
 
 export async function listMyLoans() {
   const client = await getSupabase();
