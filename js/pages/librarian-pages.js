@@ -80,12 +80,12 @@ const pageTitles = {
   transactions: ["Data Transaksi", "Riwayat seluruh aktivitas peminjaman"]
 };
 
-function renderShell(identity) {
+function renderShell() {
   const [title, subtitle] = pageTitles[page];
   document.getElementById("admin-header").innerHTML = `
     <button class="admin-menu-toggle" type="button" data-sidebar-toggle aria-controls="admin-sidebar" aria-expanded="false" aria-label="Buka atau tutup menu">${icon("book")}</button>
     <div class="admin-header__title"><div class="admin-breadcrumb"><span>${title}</span></div><p>${subtitle}</p></div>
-    <div class="admin-brand"><div><strong>${escapeHtml(identity?.profile?.full_name || "Pengelola")}</strong><span>Pustakawan</span></div></div>`;
+    <strong class="admin-brand">Pengelola Perpustakaan</strong>`;
   const activeNavigation = { dashboard: "dashboard", students: "siswa", books: "buku", "empty-stock": "stok-kosong", archive: "arsip", loans: "pinjaman", transactions: "pinjaman" }[page];
   document.getElementById("admin-nav").innerHTML = renderLibrarianNavigation(activeNavigation);
   if (!document.body.dataset.sidebarReady) {
@@ -791,11 +791,10 @@ async function renderLoans(showHistory = false) {
 }
 
 async function initialize() {
-  renderShell(null);
+  renderShell();
   try {
     const identity = await requireRole("LIBRARIAN");
     if (!identity) return;
-    renderShell(identity);
     let reloadStudents, reloadLoans;
     if (page === "dashboard") reloadStudents = reloadLoans = await renderDashboard(identity);
     if (page === "students") reloadStudents = await renderStudents();
