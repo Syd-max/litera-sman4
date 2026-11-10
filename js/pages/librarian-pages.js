@@ -4,15 +4,16 @@ import { initializePasswordToggles } from "../components/password-toggle.js";
 import { renderLibrarianNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { downloadBooksCsv, downloadBooksSpreadsheet } from "../book-export.js";
+import { downloadLoansCsv } from "../loan-export.js";
 import { archiveBook, bookCoverStoragePath, getBook, isBookOutOfStock, listArchivedBooks, listBooks, listBooksForExport, listCategories, removeBookCover, restoreBook, saveBook, uploadBookCover } from "../services/book-service.js";
 import { requireRole, signOut } from "../services/auth-service.js";
-import { approveLoan, confirmReturn, hasPendingLoanRequests, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
+import { approveLoan, confirmReturn, hasPendingLoanRequests, listAllLoans, listLoansForExport, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
 import { dashboardActivity, dashboardMetrics, deleteRejectedStudent, hasPendingStudentRegistrations, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
 import { isStudentAccessExpired, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
-import { escapeHtml, formatDate, friendlyError, isActiveLoanStatus, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
+import { ACTIVE_LOAN_STATUSES, escapeHtml, formatDate, friendlyError, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
 const main = document.getElementById("admin-main");
@@ -721,7 +722,10 @@ function openLoanDetail(loan, reload, showHistory) {
 }
 
 async function renderLoans(showHistory = false) {
-  main.innerHTML = `<nav class="admin-tabs" aria-label="Jenis data peminjaman"><a href="./loans.html" ${showHistory ? "" : 'aria-current="page"'}>Peminjaman Aktif</a><a href="./transactions.html" ${showHistory ? 'aria-current="page"' : ""}>Riwayat Selesai</a></nav>
+  main.innerHTML = `<div class="loan-admin-tools">
+      <nav class="admin-tabs" aria-label="Jenis data peminjaman"><a href="./loans.html" ${showHistory ? "" : 'aria-current="page"'}>Peminjaman Aktif</a><a href="./transactions.html" ${showHistory ? 'aria-current="page"' : ""}>Riwayat Selesai</a></nav>
+      <button class="button button--small button--secondary" id="export-loans-csv" type="button">${icon("download")} Ekspor CSV</button>
+    </div>
     <div class="toolbar">
       <div class="search-field">${icon("search")}<label class="sr-only" for="loan-search">Cari transaksi</label><input id="loan-search" type="search" placeholder="Cari siswa atau buku..."></div>
       <div class="toolbar__filters">
@@ -731,24 +735,31 @@ async function renderLoans(showHistory = false) {
     </div><div id="loan-results"></div>`;
   const host = document.getElementById("loan-results");
   const cohortSelect = document.getElementById("loan-cohort");
+  const exportButton = document.getElementById("export-loans-csv");
+  const tabStatuses = showHistory ? ["RETURNED"] : ACTIVE_LOAN_STATUSES;
   let loans = [];
-  function draw() {
-    const needle = document.getElementById("loan-search").value.toLocaleLowerCase("id-ID");
-    const status = document.getElementById("loan-status")?.value || "";
-    const cohort = cohortSelect.value;
-    const filtered = loans.filter(loan => {
+  const readFilters = () => ({
+    needle: document.getElementById("loan-search").value.toLocaleLowerCase("id-ID"),
+    status: document.getElementById("loan-status")?.value || "",
+    cohort: cohortSelect.value
+  });
+  function filterLoans(records, { needle, status, cohort }) {
+    return records.filter(loan => {
       const matchesStatus = status === "EXTENSION_PENDING" ? loan.extension_status === "PENDING" : loan.status === status;
       if (status && !matchesStatus) return false;
       if (cohort && String(loan.student?.enrollment_year) !== cohort) return false;
       return `${loan.student?.full_name || ""} ${loan.book?.title || ""}`.toLocaleLowerCase("id-ID").includes(needle);
     });
+  }
+  function draw() {
+    const filtered = filterLoans(loans, readFilters());
     if (!filtered.length) { renderEmpty(host, { title: "Tidak ada transaksi", message: "Data yang sesuai akan tampil di sini.", iconName: "clock" }); return; }
     host.innerHTML = `<div class="loan-admin-list">${filtered.map((loan) => `<article class="loan-admin-row"><div class="loan-admin-row__student"><strong title="${escapeHtml(loan.student?.full_name || "-")}">${escapeHtml(loan.student?.full_name || "-")}</strong><small>${escapeHtml(loan.student?.class_name || "")}</small></div><div class="loan-admin-row__book"><span>Buku</span><strong title="${escapeHtml(loan.book?.title || "-")}">${escapeHtml(loan.book?.title || "-")}</strong></div><div class="loan-admin-row__date"><span>${showHistory ? "Dikembalikan" : "Diajukan"}</span><strong>${formatDate(showHistory ? loan.returned_at : loan.requested_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</strong></div><div class="loan-admin-row__status"><span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span>${loan.extension_status === "PENDING" ? `<span class="badge badge--warning">Perpanjangan</span>` : ""}</div><button class="button button--small button--secondary" type="button" data-loan-detail="${loan.id}">Detail</button></article>`).join("")}</div>`;
   }
   async function load(showLoading = true) {
     if (showLoading) host.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
-      loans = (await listAllLoans()).filter(loan => showHistory ? loan.status === "RETURNED" : isActiveLoanStatus(loan.status));
+      loans = (await listAllLoans()).filter(loan => tabStatuses.includes(loan.status));
       updateCohortOptions(cohortSelect, loans.map(loan => loan.student?.enrollment_year));
       draw();
     }
@@ -757,6 +768,18 @@ async function renderLoans(showHistory = false) {
   document.getElementById("loan-search").addEventListener("input", draw);
   document.getElementById("loan-status")?.addEventListener("change", draw);
   cohortSelect.addEventListener("change", draw);
+  exportButton.addEventListener("click", async () => {
+    const filters = readFilters();
+    const originalMarkup = exportButton.innerHTML;
+    setBusy(exportButton, true, "Menyiapkan...");
+    try {
+      const records = filterLoans(await listLoansForExport(tabStatuses), filters);
+      if (!records.length) { showToast("Tidak ada transaksi pada filter ini.", "info"); return; }
+      downloadLoansCsv(records, showHistory);
+      showToast(`${records.length.toLocaleString("id-ID")} transaksi berhasil diekspor.`, "success");
+    } catch (error) { showToast(friendlyError(error), "danger"); }
+    finally { setBusy(exportButton, false); exportButton.innerHTML = originalMarkup; }
+  });
   host.addEventListener("click", (event) => {
     const button = event.target.closest("[data-loan-detail]");
     if (!button) return;

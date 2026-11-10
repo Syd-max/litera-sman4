@@ -21,6 +21,20 @@ export async function listAllLoans({ status = "", search = "" } = {}) {
   return normalized.filter((loan) => `${loan.student?.full_name || ""} ${loan.book?.title || ""}`.toLocaleLowerCase("id-ID").includes(needle));
 }
 
+export async function listLoansForExport(statuses) {
+  const client = await getSupabase();
+  const loans = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await client.from("loans").select(loanSelection).in("status", statuses)
+      .order("requested_at", { ascending: false }).order("id").range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = data || [];
+    loans.push(...page);
+    if (page.length < pageSize) return loans;
+  }
+}
+
 async function call(functionName, parameters) {
   const client = await getSupabase();
   const { data, error } = await client.rpc(functionName, parameters);

@@ -213,7 +213,8 @@
 .admin-book-row__meta b { display: block; margin-bottom: 3px; color: var(--ink-500); font-size: .6rem; text-transform: uppercase; }
 .admin-book-row > .action-cell { grid-column: 1 / -1; justify-content: flex-end; }
 
-.admin-tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; margin-bottom: 14px; padding: 4px; border: 1px solid #d3deea; border-radius: 12px; background: #fff; }
+.loan-admin-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.admin-tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; padding: 4px; border: 1px solid #d3deea; border-radius: 12px; background: #fff; }
 .admin-tabs a { min-height: 40px; padding: 10px 14px; color: var(--ink-600); border-radius: 9px; font-size: .78rem; font-weight: 750; transition: none; animation: none; transform: none; }
 .admin-tabs a[aria-current="page"] { color: #fff; background: var(--blue-800); }
 html:has(.admin-shell[data-page="loans"]), html:has(.admin-shell[data-page="transactions"]) { scroll-behavior: auto; }

@@ -42,8 +42,10 @@ export function isCurrentReading(status) {
   return ["BORROWED", "RETURN_REQUESTED"].includes(status);
 }
 
+export const ACTIVE_LOAN_STATUSES = ["PENDING", "APPROVED", "BORROWED", "RETURN_REQUESTED"];
+
 export function isActiveLoanStatus(status) {
-  return ["PENDING", "APPROVED", "BORROWED", "RETURN_REQUESTED"].includes(status);
+  return ACTIVE_LOAN_STATUSES.includes(status);
 }
 
 export function queryParam(name) {

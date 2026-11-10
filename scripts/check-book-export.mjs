@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBooksCsv, createBooksXlsx } from "../js/book-export.js";
+import { createLoansCsv } from "../js/loan-export.js";
 
 const books = [{
   id: "book-1",
@@ -28,6 +29,20 @@ assert.match(csv, /"A, B & C"/);
 assert.match(csv, /"Penulis ""Satu"""/);
 assert.match(csv, /"Baris satu\nBaris dua"/);
 assert.match(csv, /"Judul";"Penulis";"ISBN"/);
+
+const loansCsv = createLoansCsv([{
+  id: "loan-1",
+  student: { full_name: "=2+2", class_name: "XI IPA 1", enrollment_year: 2024 },
+  book: { title: 'Buku "Satu"; Edisi Baru', authors: "Penulis" },
+  status: "RETURNED",
+  requested_at: "2026-11-09T17:30:00Z",
+  borrowed_at: "2026-11-10T05:00:00Z",
+  due_at: "2026-11-17T05:00:00Z",
+  returned_at: "2026-11-16T04:00:00Z"
+}]);
+assert.match(loansCsv, /^\uFEFFsep=;\r\n"No\.";"ID peminjaman";"Nama siswa";"Kelas";"Angkatan"/);
+assert.match(loansCsv, /"'=2\+2";"XI IPA 1";"2024";"Buku ""Satu""; Edisi Baru"/);
+assert.match(loansCsv, /"Selesai";"2026-11-10 00:30:00";"";"2026-11-10 12:00:00";"2026-11-17 12:00:00";"";"2026-11-16 11:00:00"/);
 
 const spreadsheet = createBooksXlsx(books);
 assert.equal(spreadsheet[0], 0x50);

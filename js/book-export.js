@@ -9,7 +9,12 @@ const columns = [
 const clean = (value) => String(value ?? "").replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
 const validDate = (value) => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : ""; };
 const formatDate = (date) => new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
-const csvCell = (value) => `"${clean(value instanceof Date ? formatDate(value) : value).replace(/"/g, '""')}"`;
+function csvCell(value) {
+  const text = clean(value instanceof Date ? formatDate(value) : value);
+  // Spreadsheet apps can interpret user-supplied text as a formula.
+  const safeText = typeof value !== "number" && /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
+}
 const xmlCell = (value) => clean(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function bookExportRows(books) {
@@ -22,10 +27,14 @@ export function bookExportRows(books) {
   }));
 }
 
+export function createCsv(rows) {
+  return `\uFEFFsep=;\r\n${rows.map(row => row.map(csvCell).join(";")).join("\r\n")}`;
+}
+
 export function createBooksCsv(books) {
   const rows = bookExportRows(books);
   const data = [columns.map(([, label]) => label), ...rows.map((row) => columns.map(([key]) => row[key]))];
-  return `\uFEFFsep=;\r\n${data.map((row) => row.map(csvCell).join(";")).join("\r\n")}`;
+  return createCsv(data);
 }
 
 const columnName = (index) => {
@@ -120,5 +129,6 @@ function download(content, type, filename) {
   link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
-export function downloadBooksCsv(books, filename) { download(createBooksCsv(books), "text/csv;charset=utf-8", filename); }
+export function downloadCsv(content, filename) { download(content, "text/csv;charset=utf-8", filename); }
+export function downloadBooksCsv(books, filename) { downloadCsv(createBooksCsv(books), filename); }
 export function downloadBooksSpreadsheet(books, filename) { download(createBooksXlsx(books), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename); }
