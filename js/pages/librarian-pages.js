@@ -12,7 +12,7 @@ import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-lib
 import { dashboardActivity, dashboardMetrics, deleteRejectedStudent, hasPendingStudentRegistrations, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
-import { isStudentAccessExpired, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
+import { isStudentAccessExpired, MIN_ENROLLMENT_YEAR, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
 import { ACTIVE_LOAN_STATUSES, escapeHtml, formatDate, friendlyError, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
@@ -187,7 +187,7 @@ function cohortFilterMarkup(id) {
 }
 
 function updateCohortOptions(select, years) {
-  const available = [...new Set(years.map(Number).filter(year => Number.isInteger(year) && year >= 2000 && year <= 2100))]
+  const available = [...new Set(years.map(Number).filter(year => Number.isInteger(year) && year >= MIN_ENROLLMENT_YEAR && year <= 2100))]
     .sort((a, b) => b - a).map(String);
   if (select.options.length === available.length + 1 && available.every((year, index) => select.options[index + 1].value === year)) return;
   const selected = select.value;
