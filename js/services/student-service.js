@@ -108,6 +108,49 @@ export async function dashboardMetrics() {
   return { ...(data || {}), books_added_7_days: recentBooks.count || 0 };
 }
 
+async function listDashboardRows(client, table, columns) {
+  const pageSize = 500;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await client.from(table).select(columns).order("id").range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+export async function dashboardActivity(now = new Date()) {
+  const client = await getSupabase();
+  const [students, loans] = await Promise.all([
+    listDashboardRows(client, "student_profiles", "id,enrollment_year"),
+    listDashboardRows(client, "loans", "id,student_id,status,requested_at")
+  ]);
+  const cohorts = new Map();
+  const studentYears = new Map();
+  for (const student of students) {
+    const year = Number(student.enrollment_year);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) continue;
+    if (!cohorts.has(year)) cohorts.set(year, { year, registrations: 0, loans: 0 });
+    cohorts.get(year).registrations++;
+    studentYears.set(student.id, year);
+  }
+
+  let pendingReturns = 0;
+  let monthlyTransactions = 0;
+  const monthFormat = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", year: "numeric", month: "numeric" });
+  const currentMonth = monthFormat.format(now);
+  for (const loan of loans) {
+    if (loan.status === "RETURN_REQUESTED") pendingReturns++;
+    const requested = new Date(loan.requested_at);
+    if (loan.requested_at && Number.isFinite(requested.getTime()) && monthFormat.format(requested) === currentMonth) monthlyTransactions++;
+    const cohort = cohorts.get(studentYears.get(loan.student_id));
+    if (cohort && ["BORROWED", "RETURN_REQUESTED", "RETURNED"].includes(loan.status)) cohort.loans++;
+  }
+
+  return { cohorts: [...cohorts.values()].sort((a, b) => a.year - b.year), pendingReturns, monthlyTransactions };
+}
+
 export async function updateStudentProfile({ fullName, className, major }) {
   const client = await getSupabase();
   const { data: { user }, error: userError } = await client.auth.getUser();

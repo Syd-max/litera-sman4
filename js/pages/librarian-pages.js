@@ -8,7 +8,7 @@ import { archiveBook, bookCoverStoragePath, getBook, isBookOutOfStock, listArchi
 import { requireRole, signOut } from "../services/auth-service.js";
 import { approveLoan, confirmReturn, hasPendingLoanRequests, listAllLoans, markBorrowed, rejectLoan, reviewLoanExtension, subscribeToLoans } from "../services/loan-service.js";
 import { getOpenLibrarySynopsis, searchBookMetadata } from "../services/open-library-service.js";
-import { dashboardMetrics, deleteRejectedStudent, hasPendingStudentRegistrations, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
+import { dashboardActivity, dashboardMetrics, deleteRejectedStudent, hasPendingStudentRegistrations, listStudents, resetStudentPassword, reviewStudent, setStudentSuspended, subscribeToStudentRegistrations } from "../services/student-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
 import { isStudentAccessExpired, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
@@ -117,23 +117,40 @@ function metricCard(iconName, label, value, description, size = "") {
   return `<article class="dashboard-metric ${size}"><div class="dashboard-metric__value"><span>${icon(iconName)}</span><strong>${Number(value || 0).toLocaleString("id-ID")}</strong></div><h2>${label}</h2><p>${description}</p></article>`;
 }
 
+function cohortChart(cohorts, key, title, description, unit) {
+  const highest = Math.max(0, ...cohorts.map(cohort => cohort[key]));
+  const leaders = cohorts.filter(cohort => highest > 0 && cohort[key] === highest).map(cohort => String(cohort.year));
+  const topYears = new Intl.ListFormat("id-ID").format(leaders);
+  const bars = cohorts.map(cohort => {
+    const count = cohort[key];
+    const height = highest ? (count / highest) * 100 : 0;
+    const number = count.toLocaleString("id-ID");
+    return `<li class="cohort-chart__column${highest > 0 && count === highest ? " cohort-chart__column--highest" : ""}" style="--bar-height:${height}%">
+      <span class="sr-only">Angkatan ${cohort.year}, ${number} ${unit}</span>
+      <div class="cohort-chart__track" aria-hidden="true"><span class="cohort-chart__bar"></span><strong>${number}</strong></div>
+      <span class="cohort-chart__year" aria-hidden="true">${cohort.year}</span>
+    </li>`;
+  }).join("");
+  const summary = highest > 0 ? `Terbanyak di angkatan <strong>${topYears}</strong> · ${highest.toLocaleString("id-ID")} ${unit}` : "Belum ada peminjaman tercatat.";
+  return `<section class="cohort-chart" aria-labelledby="cohort-${key}-title">
+    <h2 id="cohort-${key}-title">${title}</h2><p class="cohort-chart__description">${description}</p>
+    ${cohorts.length ? `<p class="cohort-chart__summary">${summary}</p><ul class="cohort-chart__plot" tabindex="0" aria-label="${title}">${bars}</ul>` : '<p class="cohort-chart__empty">Belum ada data angkatan.</p>'}
+  </section>`;
+}
+
 async function renderDashboard(identity) {
-  const today = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(new Date());
-  main.innerHTML = `<div class="dashboard-heading"><div><h1>Dashboard</h1><p>Selamat datang kembali, ${escapeHtml(identity.profile.full_name)}.</p></div><time>${today}</time></div><div id="metrics" class="dashboard-metrics"><div class="loading-region"><div class="spinner"></div></div></div>`;
+  const today = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+  main.innerHTML = `<div class="dashboard-heading"><div><h1>Dashboard</h1><p>Selamat datang kembali, ${escapeHtml(identity.profile.full_name)}.</p></div><time>${today}</time></div><div id="metrics" class="dashboard-metrics"><div class="loading-region"><div class="spinner"></div></div></div><div id="dashboard-charts" class="dashboard-charts"></div>`;
   const metricsHost = document.getElementById("metrics");
+  const chartsHost = document.getElementById("dashboard-charts");
   let loading = false;
+  let refreshQueued = false;
   async function load(showLoading = true) {
-    if (loading) return;
+    if (loading) { refreshQueued = true; return; }
     loading = true;
     if (showLoading) metricsHost.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
-      const [metrics, loans] = await Promise.all([dashboardMetrics(), listAllLoans()]);
-      const pendingReturns = loans.filter((loan) => loan.status === "RETURN_REQUESTED").length;
-      const now = new Date();
-      const monthlyTransactions = loans.filter((loan) => {
-        const requested = new Date(loan.requested_at);
-        return requested.getFullYear() === now.getFullYear() && requested.getMonth() === now.getMonth();
-      }).length;
+      const [metrics, { cohorts, pendingReturns, monthlyTransactions }] = await Promise.all([dashboardMetrics(), dashboardActivity()]);
       metricsHost.innerHTML = [
         metricCard("book", "Total Koleksi Buku", metrics.total_books, "Judul buku fisik", "dashboard-metric--wide"),
         metricCard("plus", "Ditambahkan 7 Hari", metrics.books_added_7_days, "Koleksi buku terbaru", "dashboard-metric--wide"),
@@ -142,10 +159,19 @@ async function renderDashboard(identity) {
         metricCard("checkCircle", "Menunggu Pengembalian", pendingReturns, "Perlu dikonfirmasi"),
         metricCard("clipboard", "Transaksi Bulan Ini", monthlyTransactions, "Pengajuan peminjaman")
       ].join("");
+      chartsHost.innerHTML = [
+        cohortChart(cohorts, "registrations", "Pendaftaran per Angkatan", "Jumlah pendaftaran yang tercatat menurut tahun masuk.", "siswa"),
+        cohortChart(cohorts, "loans", "Peminjaman per Angkatan", "Buku yang sudah diambil, termasuk yang sudah dikembalikan.", "peminjaman")
+      ].join("");
     } catch (error) {
       renderError(metricsHost, friendlyError(error));
+      chartsHost.replaceChildren();
     } finally {
       loading = false;
+      if (refreshQueued) {
+        refreshQueued = false;
+        void load(false);
+      }
     }
   }
   await load();
