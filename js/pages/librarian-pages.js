@@ -121,13 +121,16 @@ function cohortChart(cohorts, key, title, description, unit) {
   const highest = Math.max(0, ...cohorts.map(cohort => cohort[key]));
   const leaders = cohorts.filter(cohort => highest > 0 && cohort[key] === highest).map(cohort => String(cohort.year));
   const topYears = new Intl.ListFormat("id-ID").format(leaders);
-  const bars = cohorts.map(cohort => {
+  const heights = cohorts.map(cohort => highest ? (cohort[key] / highest) * 100 : 0);
+  const bars = cohorts.map((cohort, index) => {
     const count = cohort[key];
-    const height = highest ? (count / highest) * 100 : 0;
+    const height = heights[index];
+    const nextHeight = heights[index + 1];
     const number = count.toLocaleString("id-ID");
     return `<li class="cohort-chart__column${highest > 0 && count === highest ? " cohort-chart__column--highest" : ""}" style="--bar-height:${height}%">
       <span class="sr-only">Angkatan ${cohort.year}, ${number} ${unit}</span>
-      <div class="cohort-chart__track" aria-hidden="true"><span class="cohort-chart__bar"></span><strong>${number}</strong></div>
+      ${nextHeight === undefined ? "" : `<svg class="cohort-chart__connector" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${100 - height}" x2="100" y2="${100 - nextHeight}" vector-effect="non-scaling-stroke"/></svg>`}
+      <div class="cohort-chart__track" aria-hidden="true"><span class="cohort-chart__bar"></span><span class="cohort-chart__point"></span><strong>${number}</strong></div>
       <span class="cohort-chart__year" aria-hidden="true">${cohort.year}</span>
     </li>`;
   }).join("");
