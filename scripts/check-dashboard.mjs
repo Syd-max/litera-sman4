@@ -12,7 +12,10 @@ const rows = {
     { id: "a", enrollment_year: 2026 },
     { id: "b", enrollment_year: 2024 },
     { id: "c", enrollment_year: 2026 },
-    { id: "d", enrollment_year: 2025 }
+    { id: "d", enrollment_year: 2025 },
+    { id: "legacy-2020", enrollment_year: 2020 },
+    { id: "legacy-2022", enrollment_year: 2022 },
+    { id: "trial-2023", enrollment_year: 2023 }
   ],
   loans: [
     ...Array.from({ length: 1001 }, (_, index) => ({ id: String(index), student_id: "a", status: "RETURNED", requested_at: "2026-10-15T00:00:00Z" })),
@@ -20,7 +23,10 @@ const rows = {
     { student_id: "b", status: "RETURN_REQUESTED", requested_at: "2026-11-05T00:00:00Z" },
     { student_id: "c", status: "PENDING", requested_at: "2026-11-06T00:00:00Z" },
     { student_id: "c", status: "APPROVED", requested_at: "2026-11-07T00:00:00Z" },
-    { student_id: "c", status: "REJECTED", requested_at: "2026-11-08T00:00:00Z" }
+    { student_id: "c", status: "REJECTED", requested_at: "2026-11-08T00:00:00Z" },
+    { student_id: "legacy-2020", status: "RETURN_REQUESTED", requested_at: "2026-11-09T00:00:00Z" },
+    { student_id: "legacy-2022", status: "RETURNED", requested_at: "2026-10-15T00:00:00Z" },
+    { student_id: "trial-2023", status: "BORROWED", requested_at: "2026-10-15T00:00:00Z" }
   ]
 };
 globalThis.dashboardClient = {
@@ -34,8 +40,8 @@ try {
       { year: 2025, registrations: 1, loans: 0 },
       { year: 2026, registrations: 2, loans: 1001 }
     ],
-    pendingReturns: 1,
-    monthlyTransactions: 5
+    pendingReturns: 2,
+    monthlyTransactions: 6
   });
 } finally {
   delete globalThis.dashboardClient;

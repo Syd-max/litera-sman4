@@ -1,5 +1,5 @@
 import { getSupabase } from "./supabase.js";
-import { isStudentAccessExpired } from "../account-lifecycle.js";
+import { isStudentAccessExpired, MIN_ENROLLMENT_YEAR } from "../account-lifecycle.js";
 
 const REGISTRATION_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 let lastRegistrationSync = 0;
@@ -130,7 +130,7 @@ export async function dashboardActivity(now = new Date()) {
   const studentYears = new Map();
   for (const student of students) {
     const year = Number(student.enrollment_year);
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) continue;
+    if (!Number.isInteger(year) || year < MIN_ENROLLMENT_YEAR || year > 2100) continue;
     if (!cohorts.has(year)) cohorts.set(year, { year, registrations: 0, loans: 0 });
     cohorts.get(year).registrations++;
     studentYears.set(student.id, year);
