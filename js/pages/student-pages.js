@@ -55,7 +55,7 @@ function renderShell(identity) {
     header.innerHTML = `<div class="topbar__inner">
       <div class="topbar__row">
         <div class="student-profile-mini">
-          <img src="../assets/library-logo.png" alt="Logo Perpustakaan SMAN 4 Tangerang Selatan">
+          <img src="../assets/library-logo.svg" alt="Logo Perpustakaan SMAN 4 Tangerang Selatan">
           <div><span>Selamat datang</span><strong>${name}</strong></div>
         </div>
         ${headerActions(active)}
@@ -479,7 +479,7 @@ async function renderProfile(identity) {
   header.remove();
   main.className = "";
   main.innerHTML = `
-    <section class="topbar topbar--compact profile-hero"><div class="topbar__inner profile-hero__inner"><div class="profile-identity"><img src="../assets/library-logo.png" alt="Logo Perpustakaan SMAN 4 Tangerang Selatan"><div><h1>${escapeHtml(identity.profile.full_name)}</h1><p>${escapeHtml(identity.profile.class_name)}, ${escapeHtml(identity.profile.major)}</p></div></div><div class="profile-hero__nav">${headerActions("profil")}</div></div></section>
+    <section class="topbar topbar--compact profile-hero"><div class="topbar__inner profile-hero__inner"><div class="profile-identity"><img src="../assets/library-logo.svg" alt="Logo Perpustakaan SMAN 4 Tangerang Selatan"><div><h1>${escapeHtml(identity.profile.full_name)}</h1><p>${escapeHtml(identity.profile.class_name)}, ${escapeHtml(identity.profile.major)}</p></div></div><div class="profile-hero__nav">${headerActions("profil")}</div></div></section>
     <div class="page-container page-container--narrow stack">
       <div class="profile-menu card">
         <a href="./history.html">${icon("book")}<span>Riwayat Bacaan</span>${icon("arrowRight")}</a>
