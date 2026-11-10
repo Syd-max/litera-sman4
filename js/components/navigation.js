@@ -33,7 +33,7 @@ export function renderStudentDesktopNavigation(active) {
 export function renderLibrarianNavigation(active) {
   return `<button class="admin-sidebar-backdrop" type="button" data-sidebar-close aria-label="Tutup menu" tabindex="-1"></button>
   <nav class="admin-nav" id="admin-sidebar" aria-label="Navigasi pengelola">
-    <a class="admin-nav__brand" href="./index.html"><img src="../assets/sman4-logo.png" alt="Logo SMAN 4 Tangerang Selatan"><span><strong>Smart Library</strong><small>SMAN 4 Tangerang Selatan</small></span></a>
+    <a class="admin-nav__brand" href="./index.html"><img src="../assets/library-logo.png" alt="Logo Perpustakaan SMAN 4 Tangerang Selatan"><span><strong>Smart Library</strong><small>SMAN 4 Tangerang Selatan</small></span></a>
     <div class="admin-nav__items">${librarianItems.map((item) => itemMarkup(item, active)).join("")}</div>
     <button class="admin-sidebar-logout" type="button" data-admin-logout>${icon("logout")}<span>Keluar</span></button>
   </nav>`;

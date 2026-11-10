@@ -14,7 +14,7 @@
   width: 48px;
   height: 48px;
   flex: 0 0 48px;
-  border-radius: 50%;
+  border-radius: 6px;
   object-fit: contain;
   background: transparent;
 }
@@ -241,7 +241,7 @@
 .profile-hero__inner { width: min(100%, 760px); margin-inline: auto; padding: max(18px,env(safe-area-inset-top)) 20px 18px; }
 .profile-identity { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .profile-hero__nav { display: none; }
-.profile-identity img { width: 58px; height: 58px; flex: 0 0 58px; border: 2px solid var(--lime-400); border-radius: 50%; object-fit: contain; background: transparent; }
+.profile-identity img { width: 58px; height: 58px; flex: 0 0 58px; border: 2px solid var(--lime-400); border-radius: 6px; object-fit: contain; background: transparent; }
 .profile-identity > div { min-width: 0; }
 .profile-identity h1 { overflow: hidden; margin: 0 0 3px; color: #fff; font-size: 1rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .profile-identity p { overflow: hidden; margin: 0; color: var(--lime-400); font-size: .64rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
