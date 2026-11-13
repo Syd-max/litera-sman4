@@ -488,7 +488,17 @@ async function renderProfile(identity) {
         <a href="./info.html?view=help">${icon("help")}<span>Bantuan</span>${icon("arrowRight")}</a>
       </div>
       <button class="button button--danger button--block" id="logout-button" type="button">${icon("logout")} Keluar</button>
-      <p style="text-align:center;color:var(--ink-500);font-size:.78rem">LITERA Smart Library, SMAN 4 Tangerang Selatan</p>
+      <footer class="profile-footer">
+        <p>LITERA Smart Library, SMAN 4 Tangerang Selatan</p>
+        <p class="profile-footer__label">Dev By:</p>
+        <ul class="profile-footer__links">
+          <li><a href="https://www.linkedin.com/in/irsyad-andika" target="_blank" rel="noopener noreferrer">Irsyad Andika</a></li>
+          <li><a href="https://www.linkedin.com/in/dewi-anggraini-wulandari-125568370" target="_blank" rel="noopener noreferrer">Dewi Anggraini Wulandari</a></li>
+          <li><a href="https://www.linkedin.com/in/juan-luthfi-84a8a52b5" target="_blank" rel="noopener noreferrer">Juan Luthfi</a></li>
+          <li><a href="https://www.linkedin.com/in/alliya-zahra-72687a402" target="_blank" rel="noopener noreferrer">Alliya Zahra</a></li>
+          <li><a href="https://www.linkedin.com/in/diedho-adriano-b79a8136b" target="_blank" rel="noopener noreferrer">Diedho Adriano</a></li>
+        </ul>
+      </footer>
     </div>`;
   document.getElementById("logout-button").addEventListener("click", async () => {
     if (!await confirmDialog({ title: "Keluar dari LITERA?", message: "Anda perlu login kembali untuk mengakses layanan.", confirmLabel: "Keluar", danger: true })) return;

@@ -250,6 +250,12 @@
 .profile-menu svg { width: 22px; height: 22px; color: var(--ink-700); }
 .profile-menu span { flex: 1; }
 
+.profile-footer { color: var(--ink-500); font-size: .78rem; text-align: center; }
+.profile-footer p { margin: 0; }
+.profile-footer .profile-footer__label { margin-top: 8px; color: var(--ink-700); font-weight: 700; }
+.profile-footer__links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
+.profile-footer__links a { display: inline-flex; min-height: 24px; align-items: center; color: var(--blue-800); text-decoration: underline; text-underline-offset: 2px; }
+
 .help-intro { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 12px; align-items: center; margin-bottom: 24px; }
 .help-intro__icon { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #d7e8fb; border-radius: 50%; color: var(--blue-700); background: #fff; }
 .help-intro__icon svg { width: 24px; height: 24px; }
