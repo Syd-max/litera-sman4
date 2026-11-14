@@ -175,19 +175,25 @@ export async function listArchivedBooks() {
 
 export async function listPopularBooks(limit = 8) {
   const client = await getSupabase();
-  let { data, error } = await client.from("book_search_stats").select(`search_count,book:books(${bookSelection})`).order("search_count", { ascending: false }).order("last_searched_at", { ascending: false }).limit(limit);
+  const popularQuery = (selection) => client.from("book_search_stats")
+    .select(`detail_open_count,book:books!inner(${selection})`)
+    .is("book.archived_at", null)
+    .gt("detail_open_count", 0)
+    .order("detail_open_count", { ascending: false })
+    .order("last_detail_opened_at", { ascending: false })
+    .limit(limit);
+  let { data, error } = await popularQuery(bookSelection);
   if (missingInventorySchema(error)) {
-    ({ data, error } = await client.from("book_search_stats").select(`search_count,book:books(${legacyBookSelection})`).order("search_count", { ascending: false }).order("last_searched_at", { ascending: false }).limit(limit));
+    ({ data, error } = await popularQuery(legacyBookSelection));
   }
-  if (["42P01", "PGRST200", "PGRST205"].includes(error?.code)) return [];
+  if (["42P01", "PGRST200", "PGRST205"].includes(error?.code) || error?.message?.includes("detail_open_count")) return [];
   if (error) throw error;
   return collapseCatalogDuplicates((data || []).map((row) => row.book).filter(Boolean));
 }
 
-export async function recordBookSearch(bookIds) {
-  if (!bookIds.length) return;
+export async function recordSearchDetailOpen(bookId) {
   const client = await getSupabase();
-  const { error } = await client.rpc("record_book_searches", { p_book_ids: bookIds.slice(0, 5) });
+  const { error } = await client.rpc("record_book_search_detail_open", { p_book_id: bookId });
   if (error) throw error;
 }
 

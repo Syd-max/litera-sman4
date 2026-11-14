@@ -2,7 +2,7 @@ import { confirmDialog, renderEmpty, renderError, setBusy, showToast } from "../
 import { icon } from "../components/icons.js";
 import { renderStudentDesktopNavigation, renderStudentNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
-import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordBookSearch, toggleFavorite } from "../services/book-service.js";
+import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordSearchDetailOpen, toggleFavorite } from "../services/book-service.js";
 import { requireRole, signOut, watchStudentAccess } from "../services/auth-service.js";
 import { listMyLoans, listReadingHistory, requestLoan, requestLoanExtension, requestReturn, subscribeToLoans } from "../services/loan-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
@@ -96,9 +96,9 @@ function coverImage(book, className = "", loading = false) {
   return `<img${className ? ` class="${className}"` : ""} src="${escapeHtml(coverUrl(book))}" alt="Sampul ${escapeHtml(book.title || "Buku")}" data-book-cover${loading ? ' loading="lazy" decoding="async"' : ""}>`;
 }
 
-function bookCard(book) {
+function bookCard(book, fromSearch = false) {
   const available = Number(book.available_stock) > 0;
-  return `<a class="book-card" href="./book.html?id=${encodeURIComponent(book.id)}">
+  return `<a class="book-card" href="./book.html?id=${encodeURIComponent(book.id)}${fromSearch ? "&amp;from=search" : ""}">
     ${coverImage(book, "book-card__cover", true)}
     <div class="book-card__body">
       <span class="badge book-card__availability ${available ? "badge--success" : "badge--danger"}">${available ? "Tersedia" : "Tidak tersedia"}</span>
@@ -121,8 +121,8 @@ async function renderHome(identity) {
       <div class="section-heading"><h2>Buku Populer</h2><a class="section-link" href="./catalog.html">Lihat Semua</a></div>
       <div class="book-grid" id="home-books"></div>`;
     const booksHost = document.getElementById("home-books");
-    if (books.length) booksHost.innerHTML = books.map(bookCard).join("");
-    else renderEmpty(booksHost, { title: "Belum ada pencarian", message: "Buku yang paling sering dicari siswa akan tampil di sini.", actionHref: "./catalog.html", actionLabel: "Buka Katalog" });
+    if (books.length) booksHost.innerHTML = books.map(book => bookCard(book)).join("");
+    else renderEmpty(booksHost, { title: "Belum ada buku populer", message: "Buku yang sering dibuka dari hasil pencarian akan tampil di sini.", actionHref: "./catalog.html", actionLabel: "Buka Katalog" });
   } catch (error) {
     renderError(content, friendlyError(error));
   }
@@ -154,28 +154,28 @@ async function renderCatalog() {
   let categories = [];
   let allBooks = [];
   let filteredBooks = [];
+  let hasSearchQuery = false;
   let visibleCount = 100;
 
   function drawBooks() {
     const visible = filteredBooks.slice(0, visibleCount);
     document.getElementById("catalog-count").textContent = `${filteredBooks.length.toLocaleString("id-ID")} buku`;
-    if (visible.length) results.innerHTML = visible.map(bookCard).join("");
+    if (visible.length) results.innerHTML = visible.map(book => bookCard(book, hasSearchQuery)).join("");
     else renderEmpty(results, { title: "Buku tidak ditemukan", message: "Coba kata kunci atau kategori lain.", iconName: "search" });
     more.hidden = visible.length >= filteredBooks.length;
   }
 
-  async function load(trackSearch = false) {
+  function load() {
     results.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
       const needle = input.value.trim().toLocaleLowerCase("id-ID");
+      hasSearchQuery = Boolean(needle);
       filteredBooks = allBooks.filter((book) => {
         const matchesCategory = !category || book.category?.slug === category;
         const haystack = `${book.title} ${book.authors} ${book.isbn || ""} ${book.category?.name || ""}`.toLocaleLowerCase("id-ID");
         return matchesCategory && (!needle || haystack.includes(needle));
       });
       visibleCount = 100;
-      // Popularity tracking must never block catalogue results.
-      if (trackSearch && needle && filteredBooks.length) recordBookSearch(filteredBooks.slice(0, 100).map((book) => book.id)).catch(() => {});
       drawBooks();
     } catch (error) {
       renderError(results, friendlyError(error));
@@ -192,9 +192,9 @@ async function renderCatalog() {
       category = categorySelect.value;
       load();
     });
-    document.getElementById("catalog-search").addEventListener("submit", (event) => { event.preventDefault(); load(true); });
+    document.getElementById("catalog-search").addEventListener("submit", (event) => { event.preventDefault(); load(); });
     more.addEventListener("click", () => { visibleCount += 100; drawBooks(); });
-    await load(Boolean(initialQuery));
+    load();
   } catch (error) {
     renderError(results, friendlyError(error));
   }
@@ -219,19 +219,22 @@ async function renderSearch() {
   const results = document.getElementById("search-results");
   const title = document.getElementById("search-title");
   let catalogBooks = null;
+  let searchVersion = 0;
 
   async function showPopular() {
+    const version = ++searchVersion;
     results.className = "popular-search-list";
     results.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
       const books = await listPopularBooks(8);
+      if (version !== searchVersion) return;
       if (!books.length) {
-        renderEmpty(results, { title: "Belum ada pencarian populer", message: "Cari buku untuk mulai membangun daftar populer.", iconName: "search" });
+        renderEmpty(results, { title: "Belum ada pencarian populer", message: "Cari buku dan buka detailnya untuk mulai membangun daftar populer.", iconName: "search" });
         return;
       }
       results.innerHTML = books.map((book) => `<a class="popular-search-item" href="./book.html?id=${encodeURIComponent(book.id)}">${icon("clock")}<span>${escapeHtml(book.title)}</span>${icon("arrowRight")}</a>`).join("");
     } catch (error) {
-      renderError(results, friendlyError(error));
+      if (version === searchVersion) renderError(results, friendlyError(error));
     }
   }
 
@@ -243,20 +246,21 @@ async function renderSearch() {
       return;
     }
     title.textContent = `Hasil untuk “${query}”`;
+    const version = ++searchVersion;
     results.className = "book-grid";
     results.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
       catalogBooks ||= await listCatalogBooks();
+      if (version !== searchVersion) return;
       const needle = query.toLocaleLowerCase("id-ID");
       const books = catalogBooks.filter((book) => `${book.title} ${book.authors} ${book.isbn || ""} ${book.category?.name || ""}`.toLocaleLowerCase("id-ID").includes(needle)).slice(0, 60);
       if (books.length) {
-        results.innerHTML = books.map(bookCard).join("");
-        recordBookSearch(books.map((book) => book.id)).catch(() => {});
+        results.innerHTML = books.map(book => bookCard(book, true)).join("");
       } else {
         renderEmpty(results, { title: "Buku tidak ditemukan", message: "Coba judul, penulis, kategori, atau ISBN lain.", iconName: "search" });
       }
     } catch (error) {
-      renderError(results, friendlyError(error));
+      if (version === searchVersion) renderError(results, friendlyError(error));
     }
   }
 
@@ -291,6 +295,17 @@ async function renderBookDetail() {
         <button class="button button--secondary button--block" id="favorite-button" type="button" aria-pressed="${favorite}">${icon("heart")}<span>${favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span></button>
         <button class="button button--primary button--block" id="loan-button" type="button" ${available ? "" : "disabled"}>${icon("clipboard")}<span>${available ? "Ajukan Peminjaman" : "Buku Tidak Tersedia"}</span></button>
       </div>`;
+    const detailUrl = new URL(window.location.href);
+    if (detailUrl.searchParams.get("from") === "search") {
+      detailUrl.searchParams.delete("from");
+      window.history.replaceState(window.history.state, "", detailUrl);
+      const resultPages = ["./search.html", "./catalog.html"].map(path => new URL(path, detailUrl).pathname);
+      const source = document.referrer ? new URL(document.referrer) : null;
+      const navigation = performance.getEntriesByType("navigation")[0];
+      if (source?.origin === detailUrl.origin && resultPages.includes(source.pathname) && navigation?.type === "navigate") {
+        void recordSearchDetailOpen(book.id).catch(() => {});
+      }
+    }
     let favoriteState = favorite;
     document.getElementById("favorite-button").addEventListener("click", async (event) => {
       const button = event.currentTarget;

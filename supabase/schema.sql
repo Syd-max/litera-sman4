@@ -111,6 +111,10 @@ create table if not exists public.book_search_stats (
   last_searched_at timestamptz not null default now()
 );
 
+alter table public.book_search_stats
+  add column if not exists detail_open_count bigint not null default 0 check (detail_open_count >= 0),
+  add column if not exists last_detail_opened_at timestamptz;
+
 create table if not exists public.loans (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references public.student_profiles(id),
@@ -720,6 +724,25 @@ begin
 end;
 $$;
 
+create or replace function public.record_book_search_detail_open(p_book_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not private.is_active_student() then raise exception 'active student account required'; end if;
+
+  insert into public.book_search_stats (book_id, detail_open_count, last_detail_opened_at)
+  select id, 1, now()
+  from public.books
+  where id = p_book_id and archived_at is null
+  on conflict (book_id) do update
+  set detail_open_count = public.book_search_stats.detail_open_count + 1,
+      last_detail_opened_at = excluded.last_detail_opened_at;
+end;
+$$;
+
 create or replace function public.librarian_dashboard_metrics()
 returns jsonb
 language sql
@@ -822,6 +845,7 @@ grant execute on function public.archive_book(uuid) to authenticated;
 grant execute on function public.restore_book(uuid) to authenticated;
 grant execute on function public.delete_book(uuid) to authenticated;
 grant execute on function public.record_book_searches(uuid[]) to authenticated;
+grant execute on function public.record_book_search_detail_open(uuid) to authenticated;
 grant execute on function public.librarian_dashboard_metrics() to authenticated;
 grant execute on function private.is_librarian() to authenticated;
 grant execute on function private.is_active_student() to authenticated;
