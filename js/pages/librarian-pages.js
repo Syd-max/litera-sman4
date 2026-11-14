@@ -687,9 +687,9 @@ function loanStatusBadge(loan, now) {
 function loanLateNotice(loan) {
   if (!isLoanLate(loan)) return "";
   const message = loan.status === "RETURNED"
-    ? "Buku diterima pustakawan setelah batas kembali."
+    ? (loan.return_requested_at ? "Pengembalian diajukan setelah batas kembali." : "Buku diterima pustakawan setelah batas kembali.")
     : loan.status === "RETURN_REQUESTED"
-      ? "Batas kembali sudah lewat. Periksa buku fisik sebelum mengonfirmasi pengembalian."
+      ? "Pengembalian diajukan setelah batas kembali. Periksa buku fisik sebelum mengonfirmasi."
       : "Pinjaman sudah lewat batas kembali.";
   return `<div class="notice notice--danger">${icon("alert")}<span>${message}</span></div>`;
 }

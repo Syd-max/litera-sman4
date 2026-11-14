@@ -37,8 +37,11 @@ export function isDueSoon(value, now = Date.now()) {
 export function isLoanLate(loan, now = Date.now()) {
   if (!loan.due_at) return false;
   const due = Date.parse(loan.due_at);
-  if (loan.status === "RETURNED") return Date.parse(loan.returned_at) > due;
-  return isCurrentReading(loan.status) && now > due;
+  if (loan.status === "RETURN_REQUESTED" || loan.status === "RETURNED") {
+    const returned = loan.return_requested_at || (loan.status === "RETURNED" ? loan.returned_at : null);
+    return Date.parse(returned) > due;
+  }
+  return loan.status === "BORROWED" && now > due;
 }
 
 // A deadline can change the displayed status without a database event.
@@ -46,10 +49,10 @@ export function scheduleLoanDeadlineRefresh(loans, redraw) {
   const now = Date.now();
   let next = Infinity;
   for (const loan of loans) {
-    if (!isCurrentReading(loan.status) || !loan.due_at) continue;
+    if (loan.status !== "BORROWED" || !loan.due_at) continue;
     const due = Date.parse(loan.due_at);
     const reminder = due - extensionWindowMs;
-    if (loan.status === "BORROWED" && reminder > now) next = Math.min(next, reminder);
+    if (reminder > now) next = Math.min(next, reminder);
     if (due >= now) next = Math.min(next, due + 1);
   }
   if (!Number.isFinite(next)) return () => {};
@@ -134,7 +137,7 @@ export function statusLabel(status) {
     SUSPENDED: "Ditangguhkan",
     EXPIRED: "Masa Aktif Habis",
     BORROWED: "Dipinjam",
-    RETURN_REQUESTED: "Menunggu Pengembalian",
+    RETURN_REQUESTED: "Menunggu Konfirmasi",
     RETURNED: "Selesai",
     CANCELLED: "Dibatalkan",
     ACTIVE: "Aktif"
