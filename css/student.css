@@ -178,6 +178,8 @@
 .loan-card__due--urgent strong { color: var(--danger); }
 .loan-card__actions { display: grid; gap: 9px; margin-top: 12px; }
 .loan-card .notice + .loan-card__actions { margin-top: 10px; }
+.loan-card .notice + .notice { margin-top: 8px; }
+.reading-card__body > .badge { margin-top: 6px; }
 
 .favorites-topbar .topbar__inner { min-height: 126px; padding-bottom: 18px; }
 .favorites-topbar .student-header-actions { display: none; }

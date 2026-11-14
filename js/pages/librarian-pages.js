@@ -13,7 +13,7 @@ import { dashboardActivity, dashboardMetrics, deleteRejectedStudent, hasPendingS
 import { MissingConfigurationError } from "../services/supabase.js";
 import { getStudentSelfie } from "../services/selfie-service.js";
 import { isStudentAccessExpired, MIN_ENROLLMENT_YEAR, studentAccessExpiresAt, studentAccountCleanupAt } from "../account-lifecycle.js";
-import { ACTIVE_LOAN_STATUSES, escapeHtml, formatDate, friendlyError, isBeforeDue, statusBadgeClass, statusLabel } from "../utils.js";
+import { ACTIVE_LOAN_STATUSES, escapeHtml, formatDate, friendlyError, isBeforeDue, isLoanLate, scheduleLoanDeadlineRefresh, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
 const main = document.getElementById("admin-main");
@@ -39,26 +39,30 @@ function watchSidebarNotices(reloadStudents, reloadLoans) {
     ["pinjaman", subscribeToLoans, reloadLoans]
   ].map(([key, subscribe, reload]) => {
     const refresh = () => void refreshSidebarNotice(key);
-    return subscribe(() => {
+    const refreshAndReload = () => {
       refresh();
       void reload?.(false);
-    }, refresh).catch(() => null);
+    };
+    return subscribe(refreshAndReload, key === "pinjaman" ? refreshAndReload : refresh).catch(() => null);
   });
 
   const refreshVisible = () => {
     if (document.visibilityState !== "visible") return;
     void refreshSidebarNotice("siswa");
     void refreshSidebarNotice("pinjaman");
+    if (page === "loans" || page === "transactions") void reloadLoans?.(false);
   };
   refreshVisible();
   window.addEventListener("focus", refreshVisible);
   window.addEventListener("pageshow", refreshVisible);
+  window.addEventListener("online", refreshVisible);
   document.addEventListener("visibilitychange", refreshVisible);
   window.addEventListener("pagehide", event => {
     if (event.persisted) return;
     subscriptions.forEach(subscription => void subscription.then(stop => stop?.()).catch(() => {}));
     window.removeEventListener("focus", refreshVisible);
     window.removeEventListener("pageshow", refreshVisible);
+    window.removeEventListener("online", refreshVisible);
     document.removeEventListener("visibilitychange", refreshVisible);
   });
 }
@@ -671,8 +675,23 @@ function loanTimeline(loan) {
   const returnedEarly = isBeforeDue(loan.return_requested_at, loan.due_at);
   return [["Diajukan", loan.requested_at], ["Dipinjam", loan.borrowed_at], ["Batas kembali", loan.due_at], ["Ajukan kembali", loan.return_requested_at], ["Diterima", loan.returned_at]]
     .filter(([, value]) => value)
-    .map(([label, value]) => `<span><b>${label}</b><span>${formatDate(value, { weekday: "short", hour: "2-digit", minute: "2-digit" })}${label === "Ajukan kembali" && returnedEarly ? `<em>Sebelum jatuh tempo</em>` : ""}</span></span>`)
+    .map(([label, value]) => `<span><b>${label}</b><span>${formatDate(value, { timeZone: "Asia/Jakarta", weekday: "short", hour: "2-digit", minute: "2-digit" })} WIB${label === "Ajukan kembali" && returnedEarly ? `<em>Sebelum jatuh tempo</em>` : ""}</span></span>`)
     .join("");
+}
+
+function loanStatusBadge(loan, now) {
+  if (isLoanLate(loan, now)) return `<span class="badge badge--danger">${loan.status === "RETURNED" ? "Dikembalikan Telat" : "Telat"}</span>`;
+  return `<span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span>`;
+}
+
+function loanLateNotice(loan) {
+  if (!isLoanLate(loan)) return "";
+  const message = loan.status === "RETURNED"
+    ? "Buku diterima pustakawan setelah batas kembali."
+    : loan.status === "RETURN_REQUESTED"
+      ? "Batas kembali sudah lewat. Periksa buku fisik sebelum mengonfirmasi pengembalian."
+      : "Pinjaman sudah lewat batas kembali.";
+  return `<div class="notice notice--danger">${icon("alert")}<span>${message}</span></div>`;
 }
 
 const loanActionMessages = {
@@ -710,7 +729,7 @@ function openLoanDetail(loan, reload, showHistory) {
   modal.setAttribute("aria-modal", "true");
   modal.setAttribute("aria-labelledby", "loan-detail-title");
   const close = () => modal.remove();
-  modal.innerHTML = `<div class="modal__dialog modal__dialog--wide"><div class="modal__header"><div><h2 id="loan-detail-title">Detail Peminjaman</h2><p>Informasi lengkap transaksi dan waktunya.</p></div><button class="icon-button" type="button" data-close aria-label="Tutup">${icon("close")}</button></div><div class="loan-detail__heading"><div><span>Siswa</span><strong>${escapeHtml(loan.student?.full_name || "-")}</strong><small>${escapeHtml(loan.student?.class_name || "Kelas tidak tersedia")}</small></div><div><span>Buku</span><strong>${escapeHtml(loan.book?.title || "-")}</strong><small>${escapeHtml(loan.book?.authors || "Penulis tidak tersedia")}</small></div></div><div class="loan-detail__status"><span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span>${loan.extension_status ? `<span class="badge ${statusBadgeClass(loan.extension_status)}">Perpanjangan: ${statusLabel(loan.extension_status)}</span>` : ""}</div><div class="loan-detail__timeline"><h3>Riwayat Waktu</h3><div class="loan-timeline">${loanTimeline(loan)}</div></div>${loan.rejection_reason ? `<div class="notice notice--danger">${icon("alert")}<span>${escapeHtml(loan.rejection_reason)}</span></div>` : ""}<div class="loan-detail__actions">${showHistory ? "" : loanActions(loan)}<button class="button button--secondary" type="button" data-close>Tutup</button></div></div>`;
+  modal.innerHTML = `<div class="modal__dialog modal__dialog--wide"><div class="modal__header"><div><h2 id="loan-detail-title">Detail Peminjaman</h2><p>Informasi lengkap transaksi dan waktunya.</p></div><button class="icon-button" type="button" data-close aria-label="Tutup">${icon("close")}</button></div><div class="loan-detail__heading"><div><span>Siswa</span><strong>${escapeHtml(loan.student?.full_name || "-")}</strong><small>${escapeHtml(loan.student?.class_name || "Kelas tidak tersedia")}</small></div><div><span>Buku</span><strong>${escapeHtml(loan.book?.title || "-")}</strong><small>${escapeHtml(loan.book?.authors || "Penulis tidak tersedia")}</small></div></div><div class="loan-detail__status" aria-live="polite">${loanStatusBadge(loan)}${loan.extension_status ? `<span class="badge ${statusBadgeClass(loan.extension_status)}">Perpanjangan: ${statusLabel(loan.extension_status)}</span>` : ""}</div><div class="loan-detail__notice">${loanLateNotice(loan)}</div><div class="loan-detail__timeline"><h3>Riwayat Waktu</h3><div class="loan-timeline">${loanTimeline(loan)}</div></div>${loan.rejection_reason ? `<div class="notice notice--danger">${icon("alert")}<span>${escapeHtml(loan.rejection_reason)}</span></div>` : ""}<div class="loan-detail__actions"><div class="loan-detail__controls">${showHistory ? "" : loanActions(loan)}</div><button class="button button--secondary" type="button" data-close>Tutup</button></div></div>`;
   modal.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
   modal.addEventListener("click", (event) => { if (event.target === modal) close(); });
   modal.addEventListener("click", (event) => {
@@ -719,6 +738,23 @@ function openLoanDetail(loan, reload, showHistory) {
   });
   document.body.append(modal);
   modal.querySelector("[data-close]").focus();
+  const controls = modal.querySelector(".loan-detail__controls");
+  let previousActions = showHistory ? "" : loanActions(loan);
+  return (updatedLoan) => {
+    if (!modal.isConnected) return;
+    const status = modal.querySelector(".loan-detail__status");
+    const extension = updatedLoan.extension_status;
+    const statusMarkup = loanStatusBadge(updatedLoan) + (extension
+      ? `<span class="badge ${statusBadgeClass(extension)}">Perpanjangan: ${statusLabel(extension)}</span>` : "");
+    if (status.innerHTML !== statusMarkup) status.innerHTML = statusMarkup;
+    modal.querySelector(".loan-detail__notice").innerHTML = loanLateNotice(updatedLoan);
+    modal.querySelector(".loan-timeline").innerHTML = loanTimeline(updatedLoan);
+    const actions = showHistory ? "" : loanActions(updatedLoan);
+    if (previousActions !== actions) {
+      controls.innerHTML = actions;
+      previousActions = actions;
+    }
+  };
 }
 
 async function renderLoans(showHistory = false) {
@@ -729,7 +765,7 @@ async function renderLoans(showHistory = false) {
     <div class="toolbar">
       <div class="search-field">${icon("search")}<label class="sr-only" for="loan-search">Cari transaksi</label><input id="loan-search" type="search" placeholder="Cari siswa atau buku..."></div>
       <div class="toolbar__filters">
-        ${showHistory ? "" : `<div class="status-filter"><label class="sr-only" for="loan-status">Filter status peminjaman</label><select id="loan-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="APPROVED">Disetujui</option><option value="BORROWED">Dipinjam</option><option value="EXTENSION_PENDING">Perpanjangan</option><option value="RETURN_REQUESTED">Pengembalian</option></select></div>`}
+        ${showHistory ? "" : `<div class="status-filter"><label class="sr-only" for="loan-status">Filter status peminjaman</label><select id="loan-status"><option value="">Semua status</option><option value="PENDING">Menunggu</option><option value="APPROVED">Disetujui</option><option value="BORROWED">Dipinjam</option><option value="LATE">Telat</option><option value="EXTENSION_PENDING">Perpanjangan</option><option value="RETURN_REQUESTED">Pengembalian</option></select></div>`}
         ${cohortFilterMarkup("loan-cohort")}
       </div>
     </div><div id="loan-results"></div>`;
@@ -737,33 +773,50 @@ async function renderLoans(showHistory = false) {
   const cohortSelect = document.getElementById("loan-cohort");
   const exportButton = document.getElementById("export-loans-csv");
   const tabStatuses = showHistory ? ["RETURNED"] : ACTIVE_LOAN_STATUSES;
+  let allLoans = [];
   let loans = [];
+  let requestVersion = 0;
+  let cancelDeadlineRefresh = () => {};
+  let updateDetail;
+  let detailLoanId;
   const readFilters = () => ({
     needle: document.getElementById("loan-search").value.toLocaleLowerCase("id-ID"),
     status: document.getElementById("loan-status")?.value || "",
     cohort: cohortSelect.value
   });
-  function filterLoans(records, { needle, status, cohort }) {
+  function filterLoans(records, { needle, status, cohort }, now = Date.now()) {
     return records.filter(loan => {
-      const matchesStatus = status === "EXTENSION_PENDING" ? loan.extension_status === "PENDING" : loan.status === status;
-      if (status && !matchesStatus) return false;
+      if (status === "LATE" && !isLoanLate(loan, now)) return false;
+      if (status === "EXTENSION_PENDING" && loan.extension_status !== "PENDING") return false;
+      if (status && status !== "LATE" && status !== "EXTENSION_PENDING" && loan.status !== status) return false;
       if (cohort && String(loan.student?.enrollment_year) !== cohort) return false;
       return `${loan.student?.full_name || ""} ${loan.book?.title || ""}`.toLocaleLowerCase("id-ID").includes(needle);
     });
   }
   function draw() {
-    const filtered = filterLoans(loans, readFilters());
+    cancelDeadlineRefresh();
+    const now = Date.now();
+    const detail = allLoans.find(loan => loan.id === detailLoanId);
+    if (detail) updateDetail?.(detail);
+    cancelDeadlineRefresh = scheduleLoanDeadlineRefresh(loans, draw);
+    const filtered = filterLoans(loans, readFilters(), now);
     if (!filtered.length) { renderEmpty(host, { title: "Tidak ada transaksi", message: "Data yang sesuai akan tampil di sini.", iconName: "clock" }); return; }
-    host.innerHTML = `<div class="loan-admin-list">${filtered.map((loan) => `<article class="loan-admin-row"><div class="loan-admin-row__student"><strong title="${escapeHtml(loan.student?.full_name || "-")}">${escapeHtml(loan.student?.full_name || "-")}</strong><small>${escapeHtml(loan.student?.class_name || "")}</small></div><div class="loan-admin-row__book"><span>Buku</span><strong title="${escapeHtml(loan.book?.title || "-")}">${escapeHtml(loan.book?.title || "-")}</strong></div><div class="loan-admin-row__date"><span>${showHistory ? "Dikembalikan" : "Diajukan"}</span><strong>${formatDate(showHistory ? loan.returned_at : loan.requested_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</strong></div><div class="loan-admin-row__status"><span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span>${loan.extension_status === "PENDING" ? `<span class="badge badge--warning">Perpanjangan</span>` : ""}</div><button class="button button--small button--secondary" type="button" data-loan-detail="${loan.id}">Detail</button></article>`).join("")}</div>`;
+    host.innerHTML = `<div class="loan-admin-list">${filtered.map((loan) => `<article class="loan-admin-row"><div class="loan-admin-row__student"><strong title="${escapeHtml(loan.student?.full_name || "-")}">${escapeHtml(loan.student?.full_name || "-")}</strong><small>${escapeHtml(loan.student?.class_name || "")}</small></div><div class="loan-admin-row__book"><span>Buku</span><strong title="${escapeHtml(loan.book?.title || "-")}">${escapeHtml(loan.book?.title || "-")}</strong></div><div class="loan-admin-row__date"><span>${showHistory ? "Dikembalikan" : "Diajukan"}</span><strong>${formatDate(showHistory ? loan.returned_at : loan.requested_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</strong></div><div class="loan-admin-row__status">${loanStatusBadge(loan, now)}${loan.extension_status === "PENDING" ? `<span class="badge badge--warning">Perpanjangan</span>` : ""}</div><button class="button button--small button--secondary" type="button" data-loan-detail="${loan.id}">Detail</button></article>`).join("")}</div>`;
   }
   async function load(showLoading = true) {
+    const version = ++requestVersion;
     if (showLoading) host.innerHTML = `<div class="loading-region"><div class="spinner"></div></div>`;
     try {
-      loans = (await listAllLoans()).filter(loan => tabStatuses.includes(loan.status));
+      const records = await listAllLoans();
+      if (version !== requestVersion) return;
+      allLoans = records;
+      loans = records.filter(loan => tabStatuses.includes(loan.status));
       updateCohortOptions(cohortSelect, loans.map(loan => loan.student?.enrollment_year));
       draw();
     }
-    catch (error) { renderError(host, friendlyError(error)); }
+    catch (error) {
+      if (version === requestVersion && (showLoading || host.querySelector(".loading-region"))) renderError(host, friendlyError(error));
+    }
   }
   document.getElementById("loan-search").addEventListener("input", draw);
   document.getElementById("loan-status")?.addEventListener("change", draw);
@@ -784,7 +837,13 @@ async function renderLoans(showHistory = false) {
     const button = event.target.closest("[data-loan-detail]");
     if (!button) return;
     const loan = loans.find((item) => item.id === button.dataset.loanDetail);
-    if (loan) openLoanDetail(loan, load, showHistory);
+    if (loan) {
+      detailLoanId = loan.id;
+      updateDetail = openLoanDetail(loan, load, showHistory);
+    }
+  });
+  window.addEventListener("pagehide", event => {
+    if (!event.persisted) { ++requestVersion; cancelDeadlineRefresh(); }
   });
   await load();
   return load;

@@ -233,6 +233,8 @@ html:has(.admin-shell[data-page="loans"]), html:has(.admin-shell[data-page="tran
 .loan-detail__timeline { padding: 14px; border: 1px solid var(--border); border-radius: 13px; }
 .loan-detail__timeline h3 { margin: 0 0 10px; font-size: .86rem; }
 .loan-detail__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.loan-detail__controls { display: contents; }
+.loan-detail__notice:not(:empty) { margin-bottom: 12px; }
 .loan-timeline { display: grid; gap: 7px; }
 .loan-timeline > span { display: grid; grid-template-columns: 104px minmax(0,1fr); gap: 8px; color: var(--ink-700); font-size: .74rem; line-height: 1.4; }
 .loan-timeline b { color: var(--ink-900); }

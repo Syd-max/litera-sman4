@@ -4,9 +4,9 @@ import { renderStudentDesktopNavigation, renderStudentNavigation } from "../comp
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordBookSearch, toggleFavorite } from "../services/book-service.js";
 import { requireRole, signOut, watchStudentAccess } from "../services/auth-service.js";
-import { listMyLoans, listReadingHistory, requestLoan, requestLoanExtension, requestReturn } from "../services/loan-service.js";
+import { listMyLoans, listReadingHistory, requestLoan, requestLoanExtension, requestReturn, subscribeToLoans } from "../services/loan-service.js";
 import { MissingConfigurationError } from "../services/supabase.js";
-import { escapeHtml, formatDate, friendlyError, isCurrentReading, isDueSoon, queryParam, statusBadgeClass, statusLabel } from "../utils.js";
+import { escapeHtml, formatDate, friendlyError, isCurrentReading, isDueSoon, isLoanLate, queryParam, scheduleLoanDeadlineRefresh, statusBadgeClass, statusLabel } from "../utils.js";
 
 const page = document.body.dataset.page;
 const main = document.getElementById("app-main");
@@ -324,11 +324,33 @@ async function renderBookDetail() {
   }
 }
 
-function loanCard(loan) {
+function watchMyLoans(load, cancelDeadlineRefresh) {
+  let disposed = false;
+  const refresh = () => { if (!disposed && !document.hidden) void load(); };
+  const subscription = subscribeToLoans(refresh, refresh).catch(() => null);
+  window.addEventListener("focus", refresh);
+  window.addEventListener("online", refresh);
+  window.addEventListener("pageshow", refresh);
+  document.addEventListener("visibilitychange", refresh);
+  window.addEventListener("pagehide", event => {
+    if (event.persisted) return;
+    disposed = true;
+    cancelDeadlineRefresh();
+    window.removeEventListener("focus", refresh);
+    window.removeEventListener("online", refresh);
+    window.removeEventListener("pageshow", refresh);
+    document.removeEventListener("visibilitychange", refresh);
+    void subscription.then(stop => stop?.()).catch(() => {});
+  });
+}
+
+function loanCard(loan, now) {
   const canReturn = loan.status === "BORROWED";
-  const canExtend = canReturn && !loan.extension_status && isDueSoon(loan.due_at);
+  const late = isLoanLate(loan, now);
+  const dueSoon = canReturn && isDueSoon(loan.due_at, now);
+  const canExtend = dueSoon && !loan.extension_status;
   const showEstimate = loan.status === "APPROVED" && !loan.due_at;
-  const dueDate = showEstimate ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : loan.due_at;
+  const dueDate = showEstimate ? new Date(now + 7 * 24 * 60 * 60 * 1000) : loan.due_at;
   const dateOptions = { timeZone: "Asia/Jakarta" };
   const dateLabel = loan.borrowed_at ? "Tanggal Pinjam" : "Tanggal Pengajuan";
   const dateValue = loan.borrowed_at || loan.requested_at;
@@ -339,15 +361,17 @@ function loanCard(loan) {
     CANCELLED: ["", "Permintaan perpanjangan dibatalkan karena pengembalian diajukan."]
   })[loan.extension_status];
   return `<article class="loan-card card">
-    <div class="loan-card__header"><div><h2>${escapeHtml(loan.book?.title || "Buku")}</h2><span class="loan-card__id">ID: ${escapeHtml(loan.id.slice(0, 8).toUpperCase())}</span></div><span class="badge ${statusBadgeClass(loan.status)}">${statusLabel(loan.status)}</span></div>
+    <div class="loan-card__header"><div><h2>${escapeHtml(loan.book?.title || "Buku")}</h2><span class="loan-card__id">ID: ${escapeHtml(loan.id.slice(0, 8).toUpperCase())}</span></div><span class="badge ${late ? "badge--danger" : statusBadgeClass(loan.status)}">${late ? (loan.status === "RETURNED" ? "Dikembalikan Telat" : "Telat") : statusLabel(loan.status)}</span></div>
     <div class="loan-card__dates">
       <div><span>${dateLabel}</span><strong>${formatDate(dateValue, dateOptions)}</strong></div>
-      <div class="${canExtend ? "loan-card__due--urgent" : ""}">
+      <div class="${late ? "loan-card__due--urgent" : ""}">
         <span>${showEstimate ? "Perkiraan Batas Kembali" : "Batas Kembali"}</span>
-        <strong>${formatDate(dueDate, dateOptions)}</strong>
+        <strong>${formatDate(dueDate, loan.due_at ? { ...dateOptions, hour: "2-digit", minute: "2-digit" } : dateOptions)}${loan.due_at ? " WIB" : ""}</strong>
         ${showEstimate ? "<small>Jika buku diambil hari ini</small>" : ""}
       </div>
     </div>
+    ${late && loan.status !== "RETURNED" ? `<div class="notice notice--danger">${icon("alert")}<span><strong>Lewat batas kembali.</strong> ${canReturn ? "Segera ajukan pengembalian dan bawa buku ke perpustakaan." : "Pengembalian sedang menunggu konfirmasi pustakawan."}</span></div>` : ""}
+    ${canExtend ? `<div class="notice notice--warning">${icon("clock")}<span>Jatuh tempo dalam 2 hari atau kurang. Ajukan tambahan 7 hari jika masih membutuhkan buku.</span></div>` : ""}
     ${loan.rejection_reason ? `<div class="notice notice--danger">${icon("alert")}<span>${escapeHtml(loan.rejection_reason)}</span></div>` : ""}
     ${extensionNotice ? `<div class="notice ${extensionNotice[0]}">${icon("info")}<span>${extensionNotice[1]}</span></div>` : ""}
     ${canReturn ? `<div class="loan-card__actions">${canExtend ? `<button class="button button--primary button--block" type="button" data-extension="${loan.id}">Ajukan Perpanjangan 7 Hari</button>` : ""}<button class="button button--secondary button--block" type="button" data-return="${loan.id}">Ajukan Pengembalian</button></div>` : ""}
@@ -358,12 +382,26 @@ async function renderLoans() {
   main.className = "page-container page-container--narrow";
   main.innerHTML = `<div id="loan-results" class="loan-list"><div class="loading-region"><div class="spinner"></div></div></div>`;
   const host = document.getElementById("loan-results");
-  async function load() {
+  let loans = [];
+  let requestVersion = 0;
+  let cancelDeadlineRefresh = () => {};
+  function draw() {
+    cancelDeadlineRefresh();
+    const now = Date.now();
+    if (loans.length) host.innerHTML = loans.map(loan => loanCard(loan, now)).join("") + `<div class="notice">${icon("info")}<span>Bawa buku fisik ke meja sirkulasi dan tunjukkan pengajuan kepada petugas.</span></div>`;
+    else renderEmpty(host, { title: "Belum ada pinjaman", message: "Buku yang Anda ajukan akan tampil di sini.", actionHref: "./catalog.html", actionLabel: "Cari Buku" });
+    cancelDeadlineRefresh = scheduleLoanDeadlineRefresh(loans, draw);
+  }
+  async function load(showError = false) {
+    const version = ++requestVersion;
     try {
-      const loans = await listMyLoans();
-      if (loans.length) host.innerHTML = loans.map(loanCard).join("") + `<div class="notice">${icon("info")}<span>Bawa buku fisik ke meja sirkulasi dan tunjukkan pengajuan kepada petugas.</span></div>`;
-      else renderEmpty(host, { title: "Belum ada pinjaman", message: "Buku yang Anda ajukan akan tampil di sini.", actionHref: "./catalog.html", actionLabel: "Cari Buku" });
-    } catch (error) { renderError(host, friendlyError(error)); }
+      const records = await listMyLoans();
+      if (version !== requestVersion || !host.isConnected) return;
+      loans = records;
+      draw();
+    } catch (error) {
+      if (version === requestVersion && (showError || host.querySelector(".loading-region"))) renderError(host, friendlyError(error));
+    }
   }
   host.addEventListener("click", async (event) => {
     const extensionButton = event.target.closest("[data-extension]");
@@ -377,13 +415,18 @@ async function renderLoans() {
     }
     const button = event.target.closest("[data-return]");
     if (!button) return;
-    const confirmed = await confirmDialog({ title: "Ajukan pengembalian?", message: "Stok baru bertambah setelah petugas menerima buku fisik.", confirmLabel: "Ajukan" });
+    const loan = loans.find(item => item.id === button.dataset.return);
+    const message = loan && isLoanLate(loan)
+      ? "Pinjaman sudah lewat batas kembali. Bawa buku ke perpustakaan agar pustakawan dapat mengonfirmasi pengembalian."
+      : "Stok baru bertambah setelah petugas menerima buku fisik.";
+    const confirmed = await confirmDialog({ title: "Ajukan pengembalian?", message, confirmLabel: "Ajukan" });
     if (!confirmed) return;
     setBusy(button, true);
     try { await requestReturn(button.dataset.return); showToast("Pengajuan pengembalian dikirim.", "success"); await load(); }
     catch (error) { showToast(friendlyError(error), "danger"); setBusy(button, false); }
   });
-  await load();
+  await load(true);
+  watchMyLoans(load, () => { ++requestVersion; cancelDeadlineRefresh(); });
 }
 
 async function renderFavorites() {
@@ -436,34 +479,53 @@ async function renderHistory() {
   const exportButton = document.getElementById("export-history");
   let history = [];
   let currentLoans = [];
+  let requestVersion = 0;
+  let cancelDeadlineRefresh = () => {};
+  let selectedView;
 
   function readingCard(item, current = false) {
     const book = item.book || {};
-    const highlightLabel = current ? "Batas kembali" : "Terakhir dibaca";
+    const late = isLoanLate(current ? item : item.loan || {});
+    const highlightLabel = current ? "Batas kembali" : "Dikembalikan";
     const highlightDate = current ? item.due_at : item.returned_at;
     return `<article class="reading-card">
       ${coverImage(book, "reading-card__cover", true)}
       <div class="reading-card__body"><h2>${escapeHtml(book.title || "Buku")}</h2><p>${escapeHtml(book.authors || "Penulis tidak tersedia")}</p>
-        <div class="reading-card__highlight">${icon(current ? "clock" : "checkCircle")}<span><small>${highlightLabel}</small><strong>${formatDate(highlightDate)}</strong></span></div>
+        <div class="reading-card__highlight">${icon(current ? "clock" : "checkCircle")}<span><small>${highlightLabel}</small><strong>${formatDate(highlightDate, { timeZone: "Asia/Jakarta" })}</strong></span></div>
+        ${late ? `<span class="badge badge--danger">${current ? "Telat" : "Dikembalikan Telat"}</span>` : ""}
       </div>
       <div class="reading-card__borrowed">${icon("clock")}<span>Dipinjam: ${formatDate(item.borrowed_at)}</span></div>
     </article>`;
   }
 
   function draw(view) {
+    selectedView = view;
     document.querySelectorAll("[data-history-view]").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.historyView === view)));
     const items = view === "current" ? currentLoans : history;
     if (items.length) host.innerHTML = items.map((item) => readingCard(item, view === "current")).join("");
     else renderEmpty(host, { title: view === "current" ? "Belum ada buku yang sedang dibaca" : "Riwayat masih kosong", message: view === "current" ? "Buku yang sudah diambil dari perpustakaan akan tampil di sini." : "Buku yang selesai dikembalikan akan tercatat di sini.", iconName: "book" });
   }
 
-  try {
-    const [completed, loans] = await Promise.all([listReadingHistory(), listMyLoans()]);
-    history = completed;
-    currentLoans = loans.filter((loan) => isCurrentReading(loan.status));
-    exportButton.disabled = !history.length;
-    draw(currentLoans.length ? "current" : "completed");
-  } catch (error) { renderError(host, friendlyError(error)); }
+  function refreshDeadline() {
+    cancelDeadlineRefresh();
+    draw(selectedView);
+    cancelDeadlineRefresh = scheduleLoanDeadlineRefresh(currentLoans, refreshDeadline);
+  }
+
+  async function load(showError = false) {
+    const version = ++requestVersion;
+    try {
+      const [completed, loans] = await Promise.all([listReadingHistory(), listMyLoans()]);
+      if (version !== requestVersion || !host.isConnected) return;
+      history = completed;
+      currentLoans = loans.filter((loan) => isCurrentReading(loan.status));
+      exportButton.disabled = !history.length;
+      selectedView ??= currentLoans.length ? "current" : "completed";
+      refreshDeadline();
+    } catch (error) {
+      if (version === requestVersion && (showError || host.querySelector(".loading-region"))) renderError(host, friendlyError(error));
+    }
+  }
 
   document.querySelector(".history-toolbar").addEventListener("click", (event) => {
     const tab = event.target.closest("[data-history-view]");
@@ -473,6 +535,8 @@ async function renderHistory() {
     const confirmed = await confirmDialog({ title: "Unduh Riwayat Bacaan?", message: "Riwayat buku yang selesai dibaca akan diunduh dalam format CSV.", confirmLabel: "Unduh CSV" });
     if (confirmed) exportHistory(history);
   });
+  await load(true);
+  watchMyLoans(load, () => { ++requestVersion; cancelDeadlineRefresh(); });
 }
 
 async function renderProfile(identity) {
@@ -521,7 +585,7 @@ function renderInfo() {
   <section class="help-section"><h2>Pertanyaan Umum</h2><div class="info-list">
     <details><summary><span>Cara meminjam buku</span>${icon("arrowRight")}</summary><div>Cari buku yang berstatus tersedia di Katalog, buka detail buku, lalu pilih <strong>Ajukan Peminjaman</strong>. Permintaan masuk ke dashboard pustakawan. Ambil buku setelah permintaan disetujui; batas pinjam ditetapkan satu minggu sejak tanggal peminjaman.</div></details>
     <details><summary><span>Cara mengembalikan buku</span>${icon("arrowRight")}</summary><div>Buka menu Pinjaman dan pilih pengajuan pengembalian, lalu serahkan buku fisik kepada petugas. Pinjaman dinyatakan selesai setelah pustakawan mengonfirmasi penerimaan buku. Tanggal dan waktu pengembalian akan tercatat otomatis.</div></details>
-    <details><summary><span>Perpanjang masa peminjaman</span>${icon("arrowRight")}</summary><div>Saat jatuh tempo sudah dekat, tombol perpanjangan akan tersedia di menu Pinjaman. Kirim permintaan satu kali dan tunggu keputusan pustakawan. Batas kembali berubah hanya jika permintaan disetujui.</div></details>
+    <details><summary><span>Perpanjang masa peminjaman</span>${icon("arrowRight")}</summary><div>Mulai 2 hari sebelum jatuh tempo, ajukan perpanjangan satu kali lewat menu Pinjaman. Jika disetujui pustakawan, batas kembali bertambah 7 hari.</div></details>
     <details><summary><span>Keterlambatan pengembalian</span>${icon("arrowRight")}</summary><div>Pinjaman yang melewati batas kembali akan ditandai terlambat. Segera kembalikan buku dan hubungi petugas untuk mengetahui ketentuan perpustakaan yang berlaku.</div></details>
     <details><summary><span>Masalah akun dan login</span>${icon("arrowRight")}</summary><div>Akun siswa baru dapat digunakan setelah disetujui pustakawan. Jika lupa password, gunakan menu Lupa Password pada halaman login. Hubungi petugas bila email tidak dikenali atau akun belum aktif.</div></details>
   </div></section>

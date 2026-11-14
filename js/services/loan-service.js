@@ -72,7 +72,7 @@ export async function subscribeToLoans(onChange, onSubscribed) {
 
 export async function listReadingHistory() {
   const client = await getSupabase();
-  const { data, error } = await client.from("reading_history").select("id,borrowed_at,returned_at,book:books(id,title,authors,cover_url)").order("returned_at", { ascending: false });
+  const { data, error } = await client.from("reading_history").select("id,borrowed_at,returned_at,loan:loans(status,due_at,returned_at),book:books(id,title,authors,cover_url)").order("returned_at", { ascending: false });
   if (error) throw error;
   return data || [];
 }

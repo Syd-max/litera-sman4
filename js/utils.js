@@ -25,10 +25,36 @@ export function toDateInput(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }
 
+const extensionWindowMs = 2 * 24 * 60 * 60 * 1000;
+
 export function isDueSoon(value, now = Date.now()) {
+  if (!value) return false;
   const due = new Date(value).getTime();
   const remaining = due - now;
-  return Number.isFinite(due) && remaining >= 0 && remaining <= 2 * 24 * 60 * 60 * 1000;
+  return remaining >= 0 && remaining <= extensionWindowMs;
+}
+
+export function isLoanLate(loan, now = Date.now()) {
+  if (!loan.due_at) return false;
+  const due = Date.parse(loan.due_at);
+  if (loan.status === "RETURNED") return Date.parse(loan.returned_at) > due;
+  return isCurrentReading(loan.status) && now > due;
+}
+
+// A deadline can change the displayed status without a database event.
+export function scheduleLoanDeadlineRefresh(loans, redraw) {
+  const now = Date.now();
+  let next = Infinity;
+  for (const loan of loans) {
+    if (!isCurrentReading(loan.status) || !loan.due_at) continue;
+    const due = Date.parse(loan.due_at);
+    const reminder = due - extensionWindowMs;
+    if (loan.status === "BORROWED" && reminder > now) next = Math.min(next, reminder);
+    if (due >= now) next = Math.min(next, due + 1);
+  }
+  if (!Number.isFinite(next)) return () => {};
+  const timer = window.setTimeout(redraw, Math.min(next - now, 2_147_483_647));
+  return () => window.clearTimeout(timer);
 }
 
 export function isBeforeDue(value, dueAt) {

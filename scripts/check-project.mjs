@@ -1,7 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { isActiveLoanStatus, isBeforeDue, isCurrentReading, isDueSoon } from "../js/utils.js";
+import { isActiveLoanStatus, isBeforeDue, isCurrentReading, isDueSoon, isLoanLate } from "../js/utils.js";
 
 const root = process.cwd();
 const ignored = new Set(["node_modules", ".git", "tmp", "graphify-out"]);
@@ -11,6 +11,14 @@ const now = Date.parse("2026-10-23T00:00:00Z");
 assert.equal(isDueSoon("2026-10-24T00:00:00Z", now), true);
 assert.equal(isDueSoon("2026-10-26T00:00:00Z", now), false);
 assert.equal(isDueSoon("2026-10-22T00:00:00Z", now), false);
+assert.equal(isDueSoon("2026-10-25T00:00:00Z", now), true);
+assert.equal(isDueSoon("2026-10-25T00:00:00.001Z", now), false);
+const borrowedLoan = { status: "BORROWED", due_at: "2026-10-23T00:00:00Z" };
+assert.equal(isLoanLate(borrowedLoan, now), false);
+assert.equal(isLoanLate(borrowedLoan, now + 1), true);
+assert.equal(isLoanLate({ ...borrowedLoan, status: "RETURN_REQUESTED", return_requested_at: "2026-10-22T23:59:00Z" }, now + 1), true);
+assert.equal(isLoanLate({ ...borrowedLoan, status: "RETURNED", returned_at: borrowedLoan.due_at }, now + 1), false);
+assert.equal(isLoanLate({ ...borrowedLoan, status: "RETURNED", returned_at: "2026-10-23T00:00:01Z" }, now + 1), true);
 assert.equal(isBeforeDue("2026-10-24T09:00:00Z", "2026-10-25T09:00:00Z"), true);
 assert.equal(isBeforeDue("2026-10-25T09:00:00Z", "2026-10-25T09:00:00Z"), false);
 assert.equal(isBeforeDue(null, "2026-10-25T09:00:00Z"), false);
