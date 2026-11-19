@@ -1,5 +1,6 @@
 import { confirmDialog, renderEmpty, renderError, setBusy, showToast } from "../components/feedback.js";
 import { icon } from "../components/icons.js";
+import { mountLibraryStatus } from "../components/library-status.js";
 import { renderStudentDesktopNavigation, renderStudentNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordSearchDetailOpen, toggleFavorite } from "../services/book-service.js";
@@ -560,6 +561,7 @@ async function renderProfile(identity) {
   main.innerHTML = `
     <section class="topbar topbar--compact profile-hero"><div class="topbar__inner profile-hero__inner"><div class="profile-identity"><img src="../assets/library-logo-outline.svg" alt="Logo Perpustakaan SMAN 4 Tangerang Selatan"><div><h1>${escapeHtml(identity.profile.full_name)}</h1><p>${escapeHtml(identity.profile.class_name)}, ${escapeHtml(identity.profile.major)}</p></div></div><div class="profile-hero__nav">${headerActions("profil")}</div></div></section>
     <div class="page-container page-container--narrow stack">
+      <section id="library-status-student" aria-label="Status perpustakaan"></section>
       <div class="profile-menu card">
         <a href="./history.html">${icon("book")}<span>Riwayat Bacaan</span>${icon("arrowRight")}</a>
         <a href="../forgot-password.html">${icon("lock")}<span>Ubah Password</span>${icon("arrowRight")}</a>
@@ -581,6 +583,7 @@ async function renderProfile(identity) {
         </div>
       </footer>
     </div>`;
+  void mountLibraryStatus(document.getElementById("library-status-student"));
   document.getElementById("logout-button").addEventListener("click", async () => {
     if (!await confirmDialog({ title: "Keluar dari LITERA?", message: "Anda perlu login kembali untuk mengakses layanan.", confirmLabel: "Keluar", danger: true })) return;
     await signOut();

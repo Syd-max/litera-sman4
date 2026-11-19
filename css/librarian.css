@@ -21,6 +21,7 @@
 .admin-breadcrumb span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-header__title p { margin: 2px 0 0; overflow: hidden; color: var(--ink-500); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .admin-brand { font-size: .78rem; line-height: 1.25; text-align: right; }
+.admin-header__account { display: flex; align-items: center; gap: 16px; }
 .admin-main { min-width: 0; padding: 94px clamp(14px,3vw,28px) 42px; transition: margin-left 220ms ease; }
 
 .admin-nav { position: fixed; z-index: 65; top: 72px; bottom: 0; left: 0; display: grid; width: min(244px,84vw); grid-template-rows: auto minmax(0,1fr) auto; gap: 18px; padding: 18px 14px; color: #fff; background: linear-gradient(180deg,#214a9b 0%,#102f70 100%); box-shadow: 12px 0 32px rgba(12,36,86,.2); transform: translateX(-104%); transition: transform 220ms ease; }
@@ -398,6 +399,9 @@ html:has(.admin-shell[data-page="loans"]), html:has(.admin-shell[data-page="tran
 @media (max-width: 559px) {
   .admin-header { grid-template-columns: 44px minmax(0,1fr) auto; gap: 8px; }
   .admin-brand { max-width: 7.5rem; }
+  .admin-header__account { flex-direction: column; align-items: flex-end; gap: 3px; }
+  .admin-header__account .admin-brand { max-width: none; font-size: .6rem; }
+  .admin-header__account .library-status-badge { min-height: 30px; padding: 4px 9px; font-size: .68rem; }
   .admin-menu-toggle { width: 44px; height: 44px; }
   .admin-header__title p { max-width: 150px; }
   .dashboard-heading { align-items: flex-start; flex-direction: column; gap: 7px; }

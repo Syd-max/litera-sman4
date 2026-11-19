@@ -1,3 +1,22 @@
+.library-status-badge { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 8px; padding: 7px 13px; border: 1px solid #d6e1ee; border-radius: 999px; background: #f2f5f9; color: #53647b; font-size: .78rem; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.library-status-badge[data-state="open"] { border-color: #b9e8d3; background: #e6f7ee; color: #08714b; }
+.library-status-badge[data-state="closed"] { border-color: #f5c8cc; background: #fff0f1; color: #b52c3c; }
+.library-status-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: currentColor; }
+.library-status-badge svg { width: 14px; height: 14px; flex: 0 0 14px; }
+.library-status-menu summary svg { transform: rotate(90deg); }
+.library-status-menu { position: relative; }
+.library-status-menu summary { cursor: pointer; list-style: none; }
+.library-status-menu summary::-webkit-details-marker { display: none; }
+.library-status-menu summary:focus-visible { outline: 3px solid #8bb7f3; outline-offset: 3px; }
+.library-status-options { position: absolute; z-index: 80; top: calc(100% + 8px); right: 0; display: grid; min-width: 150px; gap: 4px; padding: 7px; border: 1px solid var(--border); border-radius: 13px; background: #fff; box-shadow: 0 10px 28px rgba(16,47,112,.14); }
+.library-status-options button { min-height: 42px; padding: 9px 13px; border: 0; border-radius: 8px; background: #fff; color: var(--ink-900); font-weight: 700; text-align: left; }
+.library-status-options button[aria-pressed="true"], .library-status-options button:hover, .library-status-options button:focus-visible { background: #edf4ff; color: var(--blue-800); }
+.library-status-options button:disabled { cursor: wait; opacity: .65; }
+.library-status-card { padding: 18px; }
+.library-status-card__heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.library-status-card__heading strong { font-size: .9rem; }
+.library-status-card p { margin: 10px 0 0; color: var(--ink-700); font-size: .8rem; line-height: 1.55; }
+
 .topbar {
   position: relative;
   z-index: 20;

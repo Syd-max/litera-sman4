@@ -1,6 +1,7 @@
 import { confirmDialog, renderEmpty, renderError, setBusy, showToast } from "../components/feedback.js";
 import { icon } from "../components/icons.js";
 import { initializePasswordToggles } from "../components/password-toggle.js";
+import { mountLibraryStatus } from "../components/library-status.js";
 import { renderLibrarianNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { downloadBooksCsv, downloadBooksSpreadsheet } from "../book-export.js";
@@ -89,7 +90,7 @@ function renderShell() {
   document.getElementById("admin-header").innerHTML = `
     <button class="admin-menu-toggle" type="button" data-sidebar-toggle aria-controls="admin-sidebar" aria-expanded="false" aria-label="Buka atau tutup menu">${icon("book")}</button>
     <div class="admin-header__title"><div class="admin-breadcrumb"><span>${title}</span></div><p>${subtitle}</p></div>
-    <strong class="admin-brand">Pengelola Perpustakaan</strong>`;
+    <div class="admin-header__account"><div id="library-status-admin"></div><strong class="admin-brand">Pengelola Perpustakaan</strong></div>`;
   const activeNavigation = { dashboard: "dashboard", students: "siswa", books: "buku", "empty-stock": "stok-kosong", archive: "arsip", loans: "pinjaman", transactions: "pinjaman" }[page];
   document.getElementById("admin-nav").innerHTML = renderLibrarianNavigation(activeNavigation);
   if (!document.body.dataset.sidebarReady) {
@@ -854,6 +855,7 @@ async function initialize() {
   try {
     const identity = await requireRole("LIBRARIAN");
     if (!identity) return;
+    void mountLibraryStatus(document.getElementById("library-status-admin"), { editable: true });
     let reloadStudents, reloadLoans;
     if (page === "dashboard") reloadStudents = reloadLoans = await renderDashboard(identity);
     if (page === "students") reloadStudents = await renderStudents();
