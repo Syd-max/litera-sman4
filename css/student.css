@@ -141,6 +141,7 @@
 .book-reviews { margin: 18px; padding: 18px; }
 .reviews-page { width: min(100%,760px); margin-inline: auto; padding-bottom: 24px; }
 .review-book-context { display: flex; align-items: center; gap: 14px; padding: 18px; border-bottom: 1px solid var(--border); background: #fff; }
+.book-detail__hero, .review-book-context { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 .review-book-context__cover { width: 56px; height: 77px; flex: 0 0 56px; border-radius: 6px; object-fit: cover; }
 .review-book-context > div { min-width: 0; }
 .review-book-context h1 { margin: 0 0 4px; font-size: 1.05rem; line-height: 1.35; overflow-wrap: anywhere; }
