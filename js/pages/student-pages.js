@@ -1,6 +1,8 @@
 import { confirmDialog, renderEmpty, renderError, setBusy, showToast } from "../components/feedback.js";
 import { icon } from "../components/icons.js";
 import { mountLibraryStatus } from "../components/library-status.js";
+import { mountBookRating, mountBookReviews, openBookReview, ratingStars } from "../components/book-reviews.js";
+import { listMyBookReviews, reviewErrorMessage } from "../services/review-service.js";
 import { renderStudentDesktopNavigation, renderStudentNavigation } from "../components/navigation.js";
 import { initializeSelectMenus } from "../components/select-menu.js";
 import { getBook, isFavorite, listCatalogBooks, listCategories, listFavorites, listPopularBooks, recordSearchDetailOpen, toggleFavorite } from "../services/book-service.js";
@@ -25,6 +27,7 @@ initializeSelectMenus();
 const titles = {
   catalog: ["Katalog Buku", "Jelajahi koleksi buku yang tersedia di perpustakaan."],
   book: ["Detail Buku", "Informasi koleksi fisik perpustakaan."],
+  reviews: ["Ulasan Buku", "Rating dan ulasan siswa yang sudah mengembalikan buku."],
   loans: ["Status Pinjaman", "Pantau pengajuan dan pengembalian buku Anda."],
   favorites: ["Favorites", "Buku dan koleksi favoritmu, selalu bisa kamu akses kapan saja."],
   history: ["Riwayat Bacaan", "Daftar buku yang telah selesai Anda baca."],
@@ -32,7 +35,7 @@ const titles = {
 };
 
 function activeNav() {
-  if (["search", "catalog", "book", "favorites"].includes(page)) return "katalog";
+  if (["search", "catalog", "book", "reviews", "favorites"].includes(page)) return "katalog";
   if (page === "loans") return "pinjaman";
   if (["profile", "history", "info"].includes(page)) return "profil";
   return "beranda";
@@ -68,9 +71,10 @@ function renderShell(identity) {
     return;
   }
   const [title, subtitle] = titles[page] || ["LITERA", "Smart Library"];
-  header.className = `topbar ${["catalog", "book", "history", "loans", "info"].includes(page) ? "topbar--compact" : ""} ${page === "catalog" ? "catalog-topbar" : ""} ${page === "book" ? "book-topbar" : ""}`;
-  if (page === "book") {
-    header.innerHTML = `<div class="topbar__inner"><div class="detail-topbar"><a class="icon-button" href="./catalog.html" aria-label="Kembali ke katalog">${icon("arrowLeft")}</a><h1>${title}</h1></div></div>`;
+  header.className = `topbar ${["catalog", "book", "reviews", "history", "loans", "info"].includes(page) ? "topbar--compact" : ""} ${page === "catalog" ? "catalog-topbar" : ""} ${["book", "reviews"].includes(page) ? "book-topbar" : ""}`;
+  if (["book", "reviews"].includes(page)) {
+    const backHref = page === "reviews" ? `./book.html?id=${encodeURIComponent(queryParam("id") || "")}` : "./catalog.html";
+    header.innerHTML = `<div class="topbar__inner"><div class="detail-topbar"><a class="icon-button" href="${backHref}" aria-label="${page === "reviews" ? "Kembali ke detail buku" : "Kembali ke katalog"}">${icon("arrowLeft")}</a><h1>${title}</h1></div></div>`;
     return;
   }
   if (page === "favorites") {
@@ -293,9 +297,10 @@ async function renderBookDetail() {
         <section class="card availability-card ${available ? "" : "availability-card--none"}"><p>Status Ketersediaan</p><h2>${available ? "Tersedia" : "Tidak Tersedia"}</h2><p>${available ? "Buku dapat diajukan untuk dipinjam." : "Seluruh eksemplar sedang dipinjam."}</p></section>
       </div>
       <div class="detail-actions stack">
-        <button class="button button--secondary button--block" id="favorite-button" type="button" aria-pressed="${favorite}">${icon("heart")}<span>${favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span></button>
+        <div class="detail-actions__row"><button class="button button--secondary button--block" id="favorite-button" type="button" aria-pressed="${favorite}">${icon("heart")}<span>${favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}</span></button><a class="button button--secondary book-rating-link" id="book-rating-link" href="./reviews.html?id=${encodeURIComponent(bookId)}" aria-label="Buka rating dan ulasan buku ini">${icon("star")}<span>Rating</span></a></div>
         <button class="button button--primary button--block" id="loan-button" type="button" ${available ? "" : "disabled"}>${icon("clipboard")}<span>${available ? "Ajukan Peminjaman" : "Buku Tidak Tersedia"}</span></button>
       </div>`;
+    void mountBookRating(document.getElementById("book-rating-link"), bookId);
     const detailUrl = new URL(window.location.href);
     if (detailUrl.searchParams.get("from") === "search") {
       detailUrl.searchParams.delete("from");
@@ -338,6 +343,22 @@ async function renderBookDetail() {
   } catch (error) {
     renderError(main, friendlyError(error));
   }
+}
+
+async function renderBookReviewsPage() {
+  main.className = "reviews-page";
+  const bookId = queryParam("id");
+  if (!bookId) {
+    renderEmpty(main, { title: "Buku tidak ditemukan", message: "Pilih buku untuk melihat ulasannya.", actionHref: "./catalog.html", actionLabel: "Kembali ke Katalog" });
+    return;
+  }
+  main.innerHTML = '<div class="loading-region"><div class="spinner"></div></div>';
+  try {
+    const book = await getBook(bookId);
+    document.title = `Ulasan ${book.title}`;
+    main.innerHTML = `<section class="review-book-context">${coverImage(book, "review-book-context__cover")}<div><h1>${escapeHtml(book.title)}</h1><p>${escapeHtml(book.authors || "Penulis tidak tersedia")}</p></div></section><section class="book-reviews card" id="book-reviews" aria-label="Rating dan ulasan buku"></section>`;
+    await mountBookReviews(document.getElementById("book-reviews"), bookId);
+  } catch (error) { renderError(main, friendlyError(error)); }
 }
 
 function watchMyLoans(load, cancelDeadlineRefresh) {
@@ -489,7 +510,7 @@ async function renderHistory() {
     <button class="history-tab" type="button" role="tab" data-history-view="current" aria-selected="true">Sedang Dibaca</button>
     <button class="history-tab" type="button" role="tab" data-history-view="completed" aria-selected="false">Selesai Dibaca</button>
     <button class="history-export" id="export-history" type="button" aria-label="Unduh riwayat selesai sebagai CSV" disabled>${icon("download")} CSV</button>
-  </div><div id="history-results" class="reading-list" role="tabpanel"><div class="loading-region"><div class="spinner"></div></div></div>
+  </div><p class="field__hint" id="history-reviews-note" role="status" hidden></p><div id="history-results" class="reading-list" role="tabpanel"><div class="loading-region"><div class="spinner"></div></div></div>
   <div class="reading-habit">${icon("checkCircle")}<div><strong>Kebiasaan kecil, dampak besar!</strong><span>Pertahankan konsistensimu.</span></div></div>`;
   const host = document.getElementById("history-results");
   const exportButton = document.getElementById("export-history");
@@ -498,6 +519,8 @@ async function renderHistory() {
   let requestVersion = 0;
   let cancelDeadlineRefresh = () => {};
   let selectedView;
+  let myReviews = new Map();
+  let reviewsReady = false;
 
   function readingCard(item, current = false) {
     const book = item.book || {};
@@ -511,6 +534,7 @@ async function renderHistory() {
         ${late ? `<span class="badge badge--danger">${current ? "Telat" : "Dikembalikan Telat"}</span>` : ""}
       </div>
       <div class="reading-card__borrowed">${icon("clock")}<span>Dipinjam: ${formatDate(item.borrowed_at)}</span></div>
+      ${!current && item.loan?.status === "RETURNED" && book.id ? `<div class="reading-card__review">${myReviews.has(book.id) ? ratingStars(myReviews.get(book.id).rating) : ""}<button class="button button--secondary" type="button" data-review-history="${escapeHtml(item.id)}"${reviewsReady ? "" : " disabled"}>${icon("star")}${myReviews.has(book.id) ? "Edit Ulasan" : "Ulas Buku"}</button></div>` : ""}
     </article>`;
   }
 
@@ -531,9 +555,14 @@ async function renderHistory() {
   async function load(showError = false) {
     const version = ++requestVersion;
     try {
-      const [completed, loans] = await Promise.all([listReadingHistory(), listMyLoans()]);
+      const [completed, loans, reviews] = await Promise.all([listReadingHistory(), listMyLoans(), listMyBookReviews().then(data => ({ data })).catch(error => ({ error }))]);
       if (version !== requestVersion || !host.isConnected) return;
       history = completed;
+      reviewsReady = !reviews.error;
+      myReviews = new Map((reviews.data || []).map(review => [review.book_id, review]));
+      const note = document.getElementById("history-reviews-note");
+      note.hidden = reviewsReady;
+      note.textContent = reviews.error ? reviewErrorMessage(reviews.error) : "";
       currentLoans = loans.filter((loan) => isCurrentReading(loan.status));
       exportButton.disabled = !history.length;
       selectedView ??= currentLoans.length ? "current" : "completed";
@@ -546,6 +575,13 @@ async function renderHistory() {
   document.querySelector(".history-toolbar").addEventListener("click", (event) => {
     const tab = event.target.closest("[data-history-view]");
     if (tab) draw(tab.dataset.historyView);
+  });
+  host.addEventListener("click", async event => {
+    const button = event.target.closest("[data-review-history]");
+    if (!button || !reviewsReady) return;
+    const item = history.find(entry => entry.id === button.dataset.reviewHistory);
+    if (!item?.book?.id || item.loan?.status !== "RETURNED") return;
+    if (await openBookReview({ historyId: item.id, book: item.book, review: myReviews.get(item.book.id) })) await load(true);
   });
   exportButton.addEventListener("click", async () => {
     const confirmed = await confirmDialog({ title: "Unduh Riwayat Bacaan?", message: "Riwayat buku yang selesai dibaca akan diunduh dalam format CSV.", confirmLabel: "Unduh CSV" });
@@ -626,6 +662,7 @@ async function initialize() {
   if (page === "search") await renderSearch();
   if (page === "catalog") await renderCatalog();
   if (page === "book") await renderBookDetail();
+  if (page === "reviews") await renderBookReviewsPage();
   if (page === "loans") await renderLoans();
   if (page === "favorites") await renderFavorites();
   if (page === "history") await renderHistory();
